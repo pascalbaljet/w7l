@@ -335,20 +335,17 @@ namespace KidLauncher
         private void Capture(string directory, string filename)
         {
             // Windows runners may expose a desktop smaller than 1920×1080.
-            // Detach the visual so the native window cannot constrain its layout.
+            // A fresh parent resumes layout after detachment; a detached WPF
+            // subtree by itself is layout-suspended and ignores Measure/Arrange.
+            var host = new Grid { Width = 1920, Height = 1080 };
             Content = null;
             try
             {
-                // Apply the ContentPresenter change before measuring the orphan.
-                // Otherwise UpdateLayout remeasures it inside the native window.
                 UpdateLayout();
-                if (VisualTreeHelper.GetParent(Backdrop) != null)
-                    throw new InvalidOperationException("The smoke visual is still attached to the native window.");
-                Backdrop.Width = 1920;
-                Backdrop.Height = 1080;
-                Backdrop.Measure(new Size(1920, 1080));
-                Backdrop.Arrange(new Rect(0, 0, 1920, 1080));
-                Backdrop.UpdateLayout();
+                host.Children.Add(Backdrop);
+                host.Measure(new Size(1920, 1080));
+                host.Arrange(new Rect(0, 0, 1920, 1080));
+                host.UpdateLayout();
                 var image = new RenderTargetBitmap(1920, 1080, 96, 96, PixelFormats.Pbgra32);
                 image.Render(Backdrop);
                 var corner = new byte[4];
@@ -359,7 +356,7 @@ namespace KidLauncher
                     throw new InvalidOperationException("Launcher smoke capture does not fill its 1920×1080 canvas. Render size: " + Backdrop.RenderSize +
                         "; offset: " + VisualTreeHelper.GetOffset(Backdrop) + "; DPI: " + VisualTreeHelper.GetDpi(Backdrop).DpiScaleX + "; corner alpha: " + corner[3]);
             }
-            finally { Content = Backdrop; }
+            finally { host.Children.Clear(); Content = Backdrop; }
         }
 
         private async void OnKeyDown(object sender, KeyEventArgs e)
