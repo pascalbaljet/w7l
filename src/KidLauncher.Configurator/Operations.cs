@@ -144,7 +144,13 @@ namespace KidLauncher.Configurator
             }
             if (failure != null) Error(restorePending ? "Display restoration needs attention — retry in Diagnostics" : "Display test failed", failure);
         }
-        async void Recover()
+        void Recover() => Recover(false);
+        void ConfirmRecovery()
+        {
+            if (MessageBox.Show(this, "Close every running game first. Only continue when you have checked that no game is still running.\n\nConfirm this check and restore the interrupted session's display and disc?", "Confirm games are closed", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) == MessageBoxResult.Yes)
+                Recover(true);
+        }
+        async void Recover(bool confirmNoUnrecordedGameIsRunning)
         {
             bool started = false;
             try
@@ -153,7 +159,7 @@ namespace KidLauncher.Configurator
                 SetBusy(true); started = true;
                 using (AcquireStandaloneOwnership(true)) { RestoreDisplayTest(); await RestoreDiscTest(); }
                 // GameSession acquires the same file itself. Do not hold it twice.
-                await NewSession().RecoverAsync(); restorePending = false; status.Text = "Interrupted-session recovery completed.";
+                await NewSession().RecoverAsync(confirmNoUnrecordedGameIsRunning); restorePending = false; status.Text = "Interrupted-session recovery completed.";
             }
             catch (Exception ex) { restorePending = true; Error("Recovery needs attention", ex); }
             finally { if (started) SetBusy(false); }

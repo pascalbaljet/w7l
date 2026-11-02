@@ -19,7 +19,7 @@ namespace KidLauncher.Tests
                 PreviousDiscRestored, RecoveryWaitsForGame, FailedRestorationIsRetried, ConcurrentSessionsRejected,
                 DisabledForceExitKeepsResources, UnknownPriorImageDoesNotChangeDisc, WindowsProcessIdentity,
                 FutureSchemaCannotBeOverwritten, PreviousDiscRecoveryIsIdempotent, RecoveryFindsUnrecordedChild,
-                ReportingFailureDoesNotLockSession };
+                ReportingFailureDoesNotLockSession, UncertainStartRequiresAdultRecovery };
             int failed = 0;
             foreach (var test in tests)
             {
@@ -252,14 +252,14 @@ namespace KidLauncher.Tests
             using (var f = new Fixture())
             {
                 f.EnableDisc(); f.Game.Disc.RestorePreviousImage = true;
-                f.Processes.Alive = false; f.Disc.Mounted = "previous.iso";
+                f.Processes.Alive = false; f.Disc.Mounted = "different.iso";
                 File.WriteAllText(f.RecoveryPath, new JavaScriptSerializer().Serialize(new RecoverySession {
                     OriginalDisplay = f.Display.Capture(), Disc = f.Game.Disc, DiscChanged = true, PreviousImage = "previous.iso"
                 }));
                 f.Display.FailApply = true;
                 Throws(() => Complete(f.Session.RecoverAsync()));
                 f.Display.FailApply = false; Complete(f.Session.RecoverAsync());
-                Assert(f.Disc.Mounted == "previous.iso" && f.Disc.Mounts == 0 && !File.Exists(f.RecoveryPath), "Retry tried to clean up an already-restored previous disc.");
+                Assert(f.Disc.Mounted == "previous.iso" && f.Disc.Mounts == 1 && !File.Exists(f.RecoveryPath), "Recovery must replace the managed drive once, then leave the already-restored disc alone on retry.");
             }
         }
         private static void RecoveryFindsUnrecordedChild()
@@ -283,6 +283,25 @@ namespace KidLauncher.Tests
                 Assert(!session.IsRunning && session.RequestExitAsync().IsCompleted, "Failed reporting stranded exit waiters.");
                 f.Display.FailApply = false; Complete(session.RecoverAsync());
                 Assert(!File.Exists(f.RecoveryPath), "Failed reporting stranded the session ownership lock.");
+            }
+        }
+
+        private static void UncertainStartRequiresAdultRecovery()
+        {
+            using (var f = new Fixture())
+            {
+                f.EnableDisc(); f.Processes.FailIdentity = true;
+                Throws(() => Complete(f.Session.RunAsync(f.Game, CancellationToken.None)));
+                var journal = new JavaScriptSerializer().Deserialize<RecoverySession>(File.ReadAllText(f.RecoveryPath));
+                Assert(f.Processes.Started && journal.ProcessStartPending && journal.Processes.Count == 0,
+                    "An uncertain process creation was treated as a known launch failure.");
+                Throws(() => Complete(f.Session.RecoverAsync()));
+                Assert(f.Display.Current.Width == 800 && f.Disc.Mounted == f.Game.Disc.ImagePath,
+                    "Recovery changed resources while an unrecorded game might still be running.");
+                f.Processes.Alive = false;
+                Complete(f.Session.RecoverAsync(confirmNoUnrecordedGameIsRunning: true));
+                Assert(f.Display.Current.Width == 1920 && f.Disc.Mounted == "" && !File.Exists(f.RecoveryPath),
+                    "Adult-confirmed recovery did not restore the interrupted session.");
             }
         }
 
@@ -332,9 +351,9 @@ namespace KidLauncher.Tests
         {
             public static readonly TrackedProcess Initial = new TrackedProcess { Id = 101, StartTimeUtcTicks = 1000, Name = "bootstrap" };
             private readonly TrackedProcess child = new TrackedProcess { Id = 102, StartTimeUtcTicks = 2000, Name = "game" };
-            public bool Alive = true, ChildHandoff, ChildTerminated, UnrelatedTerminated, CloseWorks, Closed, Terminated, Started, FailStart;
+            public bool Alive = true, ChildHandoff, ChildTerminated, UnrelatedTerminated, CloseWorks, Closed, Terminated, Started, FailStart, FailIdentity;
             public IReadOnlyList<TrackedProcess> Snapshot() => new[] { Initial };
-            public TrackedProcess Start(Game game, string directory) { if (FailStart) throw new IOException("start failed"); Started = true; return Initial; }
+            public TrackedProcess Start(Game game, string directory) { if (FailStart) throw new IOException("start failed"); Started = true; if (FailIdentity) throw new UncertainProcessStartException("identity unavailable"); return Initial; }
             public IReadOnlyList<TrackedProcess> FindChildren(IReadOnlyList<TrackedProcess> parents) => ChildHandoff ? new[] { child } : new TrackedProcess[0];
             public bool IsAlive(TrackedProcess p) => Alive && (!ChildHandoff || p.Id == child.Id);
             public void RequestClose(TrackedProcess p) { Closed = true; if (CloseWorks) Alive = false; }

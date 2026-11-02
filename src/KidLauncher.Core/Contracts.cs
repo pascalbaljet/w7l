@@ -5,6 +5,11 @@ using System.Threading.Tasks;
 
 namespace KidLauncher.Core
 {
+    public sealed class UncertainProcessStartException : Exception
+    {
+        public UncertainProcessStartException(string message, Exception inner = null) : base(message, inner) { }
+    }
+
     public interface IDisplayService
     {
         DisplayMode Capture();

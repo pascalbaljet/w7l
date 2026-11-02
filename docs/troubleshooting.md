@@ -9,6 +9,8 @@
 
 Do not delete recovery state merely to bypass an error. KidLauncher retains it if display or disc restoration fails. Recovery refuses to change resources while an identified game process is still running or its liveness cannot be checked.
 
+If the launcher stopped during process creation, automatic recovery preserves the display and disc because the game identity may be missing. Close every game in Task Manager first. Then open the configurator's **Diagnostics** tab and select **Confirm games closed and recover…**. The confirmation does not override checks for known live game processes.
+
 A power failure, driver failure, monitor replacement, PID reuse, or interruption between process creation and recording its identity can prevent complete automatic recovery. Verify the display and disc manually after such a failure. A saved mode that the current display driver rejects cannot be forced safely.
 
 ## F6 does not close the game

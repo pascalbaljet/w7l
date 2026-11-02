@@ -87,6 +87,7 @@ namespace KidLauncher.Core
         public DiscSettings Disc { get; set; }
         public bool DiscChanged { get; set; }
         public string PreviousImage { get; set; }
+        public bool ProcessStartPending { get; set; }
         public List<TrackedProcess> Processes { get; set; } = new List<TrackedProcess>();
     }
 

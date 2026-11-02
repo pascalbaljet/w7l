@@ -38,8 +38,9 @@ namespace KidLauncher.Core
                 Verb = game.RunAsAdministrator ? "runas" : ""
             }))
             {
-                if (process == null) throw new InvalidOperationException("Windows did not return the launched process identity.");
-                return StartedIdentity(process, executable);
+                if (process == null) throw new UncertainProcessStartException("Windows did not return the launched process identity. Check whether the game opened before recovering.");
+                try { return StartedIdentity(process, executable); }
+                catch (Exception error) { throw new UncertainProcessStartException("The game started, but its identity could not be recorded. Close it manually before confirming recovery.", error); }
             }
         }
 

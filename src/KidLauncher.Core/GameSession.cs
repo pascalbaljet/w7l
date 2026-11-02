@@ -42,7 +42,7 @@ namespace KidLauncher.Core
             catch (Exception error) { Trace.WriteLine("Session status subscriber failed: " + error); }
         }
 
-        public async Task RecoverAsync()
+        public async Task RecoverAsync(bool confirmNoUnrecordedGameIsRunning = false)
         {
             if (!await gate.WaitAsync(0)) throw new InvalidOperationException("A game session is already active.");
             FileStream ownership = null;
@@ -50,6 +50,14 @@ namespace KidLauncher.Core
             {
                 ownership = AcquireOwnership();
                 var session = recovery.Load();
+                if (session != null && session.ProcessStartPending && confirmNoUnrecordedGameIsRunning)
+                {
+                    // Only the adult diagnostics route may provide this confirmation.
+                    // Known identities are still checked by RestoreAsync below.
+                    session.ProcessStartPending = false;
+                    recovery.Save(session);
+                    Report("Adult confirmed that no unrecorded game is running.");
+                }
                 if (session != null) await RestoreAsync(session);
             }
             finally { ownership?.Dispose(); gate.Release(); }
@@ -120,9 +128,22 @@ namespace KidLauncher.Core
                 }
                 cancellationToken.ThrowIfCancellationRequested();
                 GameStarting?.Invoke();
-                var initial = processes.Start(game, store.ApplicationDirectory);
+                session.ProcessStartPending = true;
+                recovery.Save(session);
+                TrackedProcess initial;
+                try { initial = processes.Start(game, store.ApplicationDirectory); }
+                catch (UncertainProcessStartException) { throw; }
+                catch
+                {
+                    // A failed CreateProcess/UAC cancellation did not start a game.
+                    // Uncertain post-start failures use the exception above instead.
+                    session.ProcessStartPending = false;
+                    recovery.Save(session);
+                    throw;
+                }
                 observed.Add(initial);
                 session.Processes.Add(initial);
+                session.ProcessStartPending = false;
                 recovery.Save(session);
                 Report("Process started: " + initial.Name + " PID " + initial.Id);
                 var startup = Stopwatch.StartNew();
@@ -187,6 +208,8 @@ namespace KidLauncher.Core
 
         private async Task RestoreAsync(RecoverySession session)
         {
+            if (session.ProcessStartPending)
+                throw new InvalidOperationException("The launcher stopped during process creation, before a game identity was recorded. Close any game manually, then use the configurator's adult confirmation recovery. Display and disc state have been preserved.");
             // A bootstrapper can spawn a game and exit between journal updates.
             // Reconstruct its surviving descendants before deciding cleanup is safe.
             bool discovered = false;
@@ -215,7 +238,6 @@ namespace KidLauncher.Core
                         };
                         if (!string.Equals(discs.GetMountedImage(session.Disc), session.PreviousImage, StringComparison.OrdinalIgnoreCase))
                         {
-                            await discs.UnmountAsync(session.Disc, CancellationToken.None);
                             await discs.MountAsync(previousDisc, session.PreviousImage, CancellationToken.None);
                         }
                         await discs.WaitReadyAsync(previousDisc, CancellationToken.None);
