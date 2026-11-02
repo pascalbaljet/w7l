@@ -344,6 +344,8 @@ namespace KidLauncher
                 UpdateLayout();
                 if (VisualTreeHelper.GetParent(Backdrop) != null)
                     throw new InvalidOperationException("The smoke visual is still attached to the native window.");
+                Backdrop.Width = 1920;
+                Backdrop.Height = 1080;
                 Backdrop.Measure(new Size(1920, 1080));
                 Backdrop.Arrange(new Rect(0, 0, 1920, 1080));
                 Backdrop.UpdateLayout();
