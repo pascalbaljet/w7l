@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Web.Script.Serialization;
@@ -19,7 +21,8 @@ namespace KidLauncher.Tests
                 PreviousDiscRestored, RecoveryWaitsForGame, FailedRestorationIsRetried, ConcurrentSessionsRejected,
                 DisabledForceExitKeepsResources, UnknownPriorImageDoesNotChangeDisc, WindowsProcessIdentity,
                 FutureSchemaCannotBeOverwritten, PreviousDiscRecoveryIsIdempotent, RecoveryFindsUnrecordedChild,
-                ReportingFailureDoesNotLockSession, UncertainStartRequiresAdultRecovery, SelectedProcessNamesLeaveHelpersAlone };
+                ReportingFailureDoesNotLockSession, UncertainStartRequiresAdultRecovery, SelectedProcessNamesLeaveHelpersAlone,
+                WindowsShortcutLaunch };
             int failed = 0;
             foreach (var test in tests)
             {
@@ -234,6 +237,34 @@ namespace KidLauncher.Tests
                 Assert(SpinWait.SpinUntil(() => !service.IsAlive(owned), 3000), "Owned process did not terminate.");
             }
             finally { if (service.IsAlive(owned)) service.Terminate(owned); }
+        }
+
+        private static void WindowsShortcutLaunch()
+        {
+            using (var f = new Fixture())
+            {
+                string path = Path.Combine(f.Root, "Game shortcut.lnk");
+                object shell = Activator.CreateInstance(Type.GetTypeFromProgID("WScript.Shell", true));
+                object link = null;
+                try
+                {
+                    link = shell.GetType().InvokeMember("CreateShortcut", BindingFlags.InvokeMethod, null, shell, new object[] { path });
+                    var type = link.GetType();
+                    type.InvokeMember("TargetPath", BindingFlags.SetProperty, null, link, new object[] { Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "ping.exe") });
+                    type.InvokeMember("Arguments", BindingFlags.SetProperty, null, link, new object[] { "-n 30 127.0.0.1" });
+                    type.InvokeMember("Save", BindingFlags.InvokeMethod, null, link, null);
+                }
+                finally { if (link != null) Marshal.FinalReleaseComObject(link); Marshal.FinalReleaseComObject(shell); }
+                Assert(WindowsShortcutService.Read(path).Arguments == "-n 30 127.0.0.1", "Shortcut arguments were not retained.");
+                var service = new WindowsProcessService();
+                var owned = service.Start(new Game { ExecutablePath = path }, f.Root);
+                try
+                {
+                    Thread.Sleep(300);
+                    Assert(service.IsAlive(owned), "Shortcut target did not stay alive with its embedded arguments.");
+                }
+                finally { if (service.IsAlive(owned)) service.Terminate(owned); }
+            }
         }
 
         private static void FutureSchemaCannotBeOverwritten()

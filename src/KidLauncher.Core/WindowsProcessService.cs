@@ -34,7 +34,7 @@ namespace KidLauncher.Core
             using (var process = Process.Start(new ProcessStartInfo(executable, game.Arguments ?? "")
             {
                 WorkingDirectory = directory,
-                UseShellExecute = game.RunAsAdministrator,
+                UseShellExecute = game.RunAsAdministrator || string.Equals(Path.GetExtension(executable), ".lnk", StringComparison.OrdinalIgnoreCase),
                 Verb = game.RunAsAdministrator ? "runas" : ""
             }))
             {
