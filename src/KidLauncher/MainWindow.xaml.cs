@@ -335,19 +335,23 @@ namespace KidLauncher
         private void Capture(string directory, string filename)
         {
             // Windows runners may expose a desktop smaller than 1920×1080.
-            // Lay out the captured visual explicitly instead of padding its
-            // smaller on-screen layout with transparent pixels.
-            Backdrop.Measure(new Size(1920, 1080));
-            Backdrop.Arrange(new Rect(0, 0, 1920, 1080));
-            Backdrop.UpdateLayout();
-            var image = new RenderTargetBitmap(1920, 1080, 96, 96, PixelFormats.Pbgra32);
-            image.Render(Backdrop);
-            var corner = new byte[4];
-            image.CopyPixels(new Int32Rect(1919, 1079, 1, 1), corner, 4, 0);
-            if (Backdrop.ActualWidth != 1920 || Backdrop.ActualHeight != 1080 || corner[3] != 255)
-                throw new InvalidOperationException("Launcher smoke capture does not fill its 1920×1080 canvas.");
-            var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(image));
-            using (var file = File.Create(Path.Combine(directory, filename))) encoder.Save(file);
+            // Detach the visual so the native window cannot constrain its layout.
+            Content = null;
+            try
+            {
+                Backdrop.Measure(new Size(1920, 1080));
+                Backdrop.Arrange(new Rect(0, 0, 1920, 1080));
+                Backdrop.UpdateLayout();
+                var image = new RenderTargetBitmap(1920, 1080, 96, 96, PixelFormats.Pbgra32);
+                image.Render(Backdrop);
+                var corner = new byte[4];
+                image.CopyPixels(new Int32Rect(1919, 1079, 1, 1), corner, 4, 0);
+                if (Backdrop.ActualWidth != 1920 || Backdrop.ActualHeight != 1080 || corner[3] != 255)
+                    throw new InvalidOperationException("Launcher smoke capture does not fill its 1920×1080 canvas.");
+                var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(image));
+                using (var file = File.Create(Path.Combine(directory, filename))) encoder.Save(file);
+            }
+            finally { Content = Backdrop; }
         }
 
         private async void OnKeyDown(object sender, KeyEventArgs e)

@@ -70,6 +70,15 @@ namespace KidLauncher.Configurator
                 if (indices[i] == 3) Assert(nodes.OfType<TextBox>().Any(), "Virtual drives: editable VCD utility path exists; no drive operation performed.", report);
                 string sibling = stem + "-" + names[i] + ".png"; CaptureWindow(sibling);
                 if (i == 0) CaptureWindow(screenshotPath);
+                if (indices[i] == 2)
+                {
+                    var changePin = nodes.OfType<Button>().Single(b => Equals(b.Content, "Change PIN"));
+                    changePin.BringIntoView();
+                    await Dispatcher.InvokeAsync(() => { UpdateLayout(); }, DispatcherPriority.ApplicationIdle);
+                    var bounds = changePin.TransformToAncestor(tabs).TransformBounds(new Rect(changePin.RenderSize));
+                    Assert(bounds.Top >= 0 && bounds.Bottom <= tabs.ActualHeight, "Controls: scrolling brings Change PIN fully into view.", report);
+                    CaptureWindow(stem + "-Controls-PIN.png");
+                }
             }
             Assert(!busy && session == null && testHotkey == null && !File.Exists(DisplayTestJournal) && !File.Exists(DiscTestJournal), "Smoke mode did not launch, mount, change display mode or register a global key.", report);
             report.AppendLine("PASS: all assertions completed. PNGs are native WPF RenderTargetBitmap captures, not browser surrogates.");

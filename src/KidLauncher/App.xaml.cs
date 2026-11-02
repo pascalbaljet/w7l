@@ -61,7 +61,17 @@ namespace KidLauncher
                         window.CaptureSmokeStates(e.Args[index + 1]);
                         Shutdown(0);
                     }
-                    catch (Exception error) { Log.Write(error.ToString()); Shutdown(1); }
+                    catch (Exception error)
+                    {
+                        Log.Write(error.ToString());
+                        int index = Array.IndexOf(e.Args, "--screenshots");
+                        if (index >= 0 && index + 1 < e.Args.Length)
+                        {
+                            Directory.CreateDirectory(e.Args[index + 1]);
+                            File.WriteAllText(Path.Combine(e.Args[index + 1], "launcher.failure.txt"), error.ToString());
+                        }
+                        Shutdown(1);
+                    }
                     finally { Directory.Delete(temporaryRoot, true); }
                 }), DispatcherPriority.ApplicationIdle);
                 MainWindow.Show();
