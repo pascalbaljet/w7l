@@ -346,10 +346,11 @@ namespace KidLauncher
                 image.Render(Backdrop);
                 var corner = new byte[4];
                 image.CopyPixels(new Int32Rect(1919, 1079, 1, 1), corner, 4, 0);
-                if (Backdrop.ActualWidth != 1920 || Backdrop.ActualHeight != 1080 || corner[3] != 255)
-                    throw new InvalidOperationException("Launcher smoke capture does not fill its 1920×1080 canvas.");
                 var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(image));
                 using (var file = File.Create(Path.Combine(directory, filename))) encoder.Save(file);
+                if (Backdrop.ActualWidth != 1920 || Backdrop.ActualHeight != 1080 || corner[3] != 255)
+                    throw new InvalidOperationException("Launcher smoke capture does not fill its 1920×1080 canvas. Render size: " + Backdrop.RenderSize +
+                        "; offset: " + VisualTreeHelper.GetOffset(Backdrop) + "; DPI: " + VisualTreeHelper.GetDpi(Backdrop).DpiScaleX + "; corner alpha: " + corner[3]);
             }
             finally { Content = Backdrop; }
         }
