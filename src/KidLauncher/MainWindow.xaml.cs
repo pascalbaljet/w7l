@@ -339,6 +339,11 @@ namespace KidLauncher
             Content = null;
             try
             {
+                // Apply the ContentPresenter change before measuring the orphan.
+                // Otherwise UpdateLayout remeasures it inside the native window.
+                UpdateLayout();
+                if (VisualTreeHelper.GetParent(Backdrop) != null)
+                    throw new InvalidOperationException("The smoke visual is still attached to the native window.");
                 Backdrop.Measure(new Size(1920, 1080));
                 Backdrop.Arrange(new Rect(0, 0, 1920, 1080));
                 Backdrop.UpdateLayout();
