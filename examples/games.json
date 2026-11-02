@@ -1,0 +1,20 @@
+{
+  "SchemaVersion": 1,
+  "Games": [],
+  "Appearance": {
+    "Columns": 4,
+    "Rows": 3,
+    "Spacing": 24,
+    "BackgroundColor": "#14233B",
+    "BackgroundImage": "",
+    "CornerRadius": 24,
+    "ShowTitles": true,
+    "CursorHideSeconds": 5
+  },
+  "Controls": {
+    "ExitVirtualKey": 117,
+    "PinSalt": "",
+    "PinHash": ""
+  },
+  "VcdMountPath": ""
+}

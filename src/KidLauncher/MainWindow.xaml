@@ -1,0 +1,32 @@
+<Window x:Class="KidLauncher.MainWindow"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ Title="KidLauncher · Let's play" WindowStyle="None" ResizeMode="NoResize"
+ WindowState="Maximized" WindowStartupLocation="CenterScreen" Background="#14233B"
+ ShowInTaskbar="False" FontFamily="Segoe UI" Foreground="White">
+ <Grid x:Name="Backdrop">
+  <Grid Margin="36,20,36,20" x:Name="PlayRoom">
+   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+   <Grid Margin="12,0,12,14">
+    <StackPanel><TextBlock Text="LET'S PLAY" Foreground="#80E1D0" FontSize="16" FontWeight="Bold" />
+     <TextBlock Text="Pick an adventure" FontSize="38" FontWeight="Bold" />
+    </StackPanel>
+    <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center" Text="★" FontSize="42" Foreground="#FFD477" />
+   </Grid>
+   <UniformGrid x:Name="Tiles" Grid.Row="1" Columns="4" Rows="3" />
+   <Grid Grid.Row="2" Margin="12,14,12,0">
+    <Button x:Name="Previous" Content="❮" HorizontalAlignment="Left" Width="100" Click="Previous_Click" AutomationProperties.Name="Previous page" />
+    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"><TextBlock x:Name="PageLabel" FontSize="20" TextAlignment="Center"/><StackPanel x:Name="PageDots" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,8,0,0"/></StackPanel>
+    <Button x:Name="Next" Content="❯" HorizontalAlignment="Right" Width="100" Click="Next_Click" AutomationProperties.Name="Next page" />
+   </Grid>
+  </Grid>
+  <Border x:Name="Overlay" Background="#F214233B" Visibility="Visible">
+   <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="780" Margin="40">
+    <TextBlock x:Name="OverlaySymbol" Text="★" Foreground="#FFD477" FontSize="90" HorizontalAlignment="Center" />
+    <TextBlock x:Name="OverlayTitle" Text="Getting ready…" FontSize="42" FontWeight="Bold" TextAlignment="Center" TextWrapping="Wrap" Margin="0,18,0,12" />
+    <TextBlock x:Name="OverlayMessage" Text="Your adventures will be here soon." FontSize="24" TextAlignment="Center" TextWrapping="Wrap" />
+    <Button x:Name="ReturnButton" Content="Back to my games" Visibility="Collapsed" Margin="0,30,0,0" Click="Return_Click" />
+   </StackPanel>
+  </Border>
+ </Grid>
+</Window>

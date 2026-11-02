@@ -1,1 +1,7 @@
 .amp/portals/*
+artifacts/
+**/bin/
+**/obj/
+.vs/
+*.user
+*.suo

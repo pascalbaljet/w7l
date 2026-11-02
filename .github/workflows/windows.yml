@@ -1,0 +1,34 @@
+name: Windows build
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Build, test, and package .NET Framework 4.8 x86
+        shell: powershell
+        run: ./scripts/build.ps1
+      - name: Render representative WPF states
+        shell: powershell
+        run: ./scripts/visual-smoke.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: KidLauncher-win7-x86
+          path: artifacts/KidLauncher-win7-x86.zip
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: WPF-visual-checks
+          path: artifacts/visual
+          if-no-files-found: warn
