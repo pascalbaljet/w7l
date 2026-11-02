@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# The repository currently contains a plan, not an application or dependency manifests.
+# Add pinned toolchain and dependency installation here when project files exist.
+# PLAN.md reserves .NET Framework 4.8 WPF builds and tests for Windows CI.
+printf 'Orb setup: no application dependencies to install.\n'
+printf 'Windows builds and tests require Windows CI; this Linux orb cannot run WPF.\n'
+printf 'Orb setup finished in %s seconds.\n' "$SECONDS"
