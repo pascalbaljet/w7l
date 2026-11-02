@@ -21,6 +21,12 @@ jobs:
       - name: Render representative WPF states
         shell: powershell
         run: ./scripts/visual-smoke.ps1
+      - name: Install desktop recording encoder
+        shell: powershell
+        run: choco install ffmpeg --version=7.1.1 --yes --no-progress
+      - name: Exercise packaged applications end to end
+        shell: powershell
+        run: ./scripts/e2e.ps1
       - uses: actions/upload-artifact@v4
         with:
           name: KidLauncher-win7-x86
@@ -31,4 +37,10 @@ jobs:
         with:
           name: WPF-visual-checks
           path: artifacts/visual
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Windows-E2E-evidence
+          path: artifacts/e2e
           if-no-files-found: warn

@@ -1,4 +1,4 @@
-Microsoft Visual Studio Solution File, Format Version 12.00
+﻿Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
@@ -9,6 +9,10 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KidLauncher.Configurator", "src\KidLauncher.Configurator\KidLauncher.Configurator.csproj", "{CFA7C56D-B076-4DDD-A691-2F4454899943}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KidLauncher.Tests", "tests\KidLauncher.Tests\KidLauncher.Tests.csproj", "{CFA7C56D-B076-4DDD-A691-2F4454899944}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{151B490C-AC80-4384-AF9B-68ED95FD4C40}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KidLauncher.E2E", "tests\KidLauncher.E2E\KidLauncher.E2E.csproj", "{369039FC-22FF-4DF0-9955-833265D842BB}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -32,5 +36,12 @@ Global
 		{CFA7C56D-B076-4DDD-A691-2F4454899944}.Debug|x86.Build.0 = Debug|x86
 		{CFA7C56D-B076-4DDD-A691-2F4454899944}.Release|x86.ActiveCfg = Release|x86
 		{CFA7C56D-B076-4DDD-A691-2F4454899944}.Release|x86.Build.0 = Release|x86
+		{369039FC-22FF-4DF0-9955-833265D842BB}.Debug|x86.ActiveCfg = Debug|x86
+		{369039FC-22FF-4DF0-9955-833265D842BB}.Debug|x86.Build.0 = Debug|x86
+		{369039FC-22FF-4DF0-9955-833265D842BB}.Release|x86.ActiveCfg = Release|x86
+		{369039FC-22FF-4DF0-9955-833265D842BB}.Release|x86.Build.0 = Release|x86
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{369039FC-22FF-4DF0-9955-833265D842BB} = {151B490C-AC80-4384-AF9B-68ED95FD4C40}
 	EndGlobalSection
 EndGlobal

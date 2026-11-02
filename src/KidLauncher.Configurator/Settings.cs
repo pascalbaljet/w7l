@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
@@ -71,6 +72,7 @@ namespace KidLauncher.Configurator
             p.Children.Add(Note("The launcher uses one global key. F6 is recommended. F12 is reserved by debuggers; Windows/system and typing keys are unsuitable. Test the selected key with each real game."));
             var keyLabel = new TextBlock { FontSize = 22, Text = KeyInterop.KeyFromVirtualKey(config.Controls.ExitVirtualKey).ToString() }; p.Children.Add(keyLabel);
             var capture = new TextBox { IsReadOnly = true, Text = "Click here, then press the desired key", Padding = new Thickness(12), MaxWidth = 500, HorizontalAlignment = HorizontalAlignment.Left };
+            AutomationProperties.SetName(capture, "Exit-game key");
             capture.PreviewKeyDown += (s, e) =>
             {
                 e.Handled = true; var key = e.Key == Key.System ? e.SystemKey : e.Key;
@@ -97,6 +99,9 @@ namespace KidLauncher.Configurator
             p.Children.Add(new TextBlock { Text = "Current PIN (required when one is already set)" }); var old = new PasswordBox { MaxWidth = 260, HorizontalAlignment = HorizontalAlignment.Left, MinWidth = 220, Padding = new Thickness(6) }; p.Children.Add(old);
             p.Children.Add(new TextBlock { Text = "New PIN", Margin = new Thickness(0, 10, 0, 0) }); var next = new PasswordBox { MaxWidth = 260, HorizontalAlignment = HorizontalAlignment.Left, MinWidth = 220, Padding = new Thickness(6) }; p.Children.Add(next);
             p.Children.Add(new TextBlock { Text = "Repeat new PIN", Margin = new Thickness(0, 10, 0, 0) }); var confirm = new PasswordBox { MaxWidth = 260, HorizontalAlignment = HorizontalAlignment.Left, MinWidth = 220, Padding = new Thickness(6) }; p.Children.Add(confirm);
+            AutomationProperties.SetName(old, "Current PIN");
+            AutomationProperties.SetName(next, "New PIN");
+            AutomationProperties.SetName(confirm, "Repeat new PIN");
             p.Children.Add(Button("Change PIN", () =>
             {
                 EnsureIdle();

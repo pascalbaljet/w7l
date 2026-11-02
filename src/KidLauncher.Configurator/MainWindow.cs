@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading;
 using System.Web.Script.Serialization;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
@@ -129,6 +130,8 @@ namespace KidLauncher.Configurator
         {
             panel.Children.Add(new TextBlock { Text = caption, Margin = new Thickness(0, 7, 0, 3) });
             var box = new TextBox { Padding = new Thickness(6), MinWidth = 120 };
+            AutomationProperties.SetName(box, caption);
+            AutomationProperties.SetAutomationId(box, property);
             box.SetBinding(TextBox.TextProperty, new Binding(property) { Source = source, Mode = BindingMode.TwoWay, UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged, ValidatesOnExceptions = true, NotifyOnValidationError = true });
             if (live) box.TextChanged += (s, e) => RefreshPreview();
             panel.Children.Add(box); return box;

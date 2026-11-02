@@ -1,0 +1,270 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Runtime.InteropServices;
+using System.Text;
+using System.Threading;
+using System.Web.Script.Serialization;
+using System.Windows.Automation;
+
+namespace KidLauncher.E2E
+{
+    internal static class Program
+    {
+        const string Cooperative = "E2E cooperative game";
+        const string Stubborn = "E2E stubborn game";
+        const string Missing = "E2E missing game";
+        const string Pin = "4931";
+        static readonly List<Process> owned = new List<Process>();
+        static StreamWriter report;
+        static string app, output;
+
+        [STAThread]
+        static int Main(string[] args)
+        {
+            if (args.Length >= 2 && args[0] == "--test-game")
+                return TestGame.Run(args[1], args.Contains("--ignore-close"));
+            if (args.Length < 2 || args.Length > 3) { Console.Error.WriteLine("Usage: KidLauncher.E2E.exe <extracted portable directory> <evidence directory> [--negative-control]"); return 2; }
+            app = Path.GetFullPath(args[0]); output = Path.GetFullPath(args[1]);
+            Directory.CreateDirectory(output);
+            using (report = new StreamWriter(Path.Combine(output, "results.txt")) { AutoFlush = true })
+            {
+                try
+                {
+                    Log("Testing normal packaged applications via out-of-process Windows UI Automation and SendInput.");
+                    Run(args.Contains("--negative-control"));
+                    Log("PASS: external packaged-app E2E journey completed.");
+                    return 0;
+                }
+                catch (Exception error)
+                {
+                    Log("FAIL: " + error);
+                    try { Desktop.Capture(Path.Combine(output, "failure.png")); DumpWindows(); }
+                    catch (Exception capture) { Log("Failure evidence error: " + capture); }
+                    return 1;
+                }
+                finally
+                {
+                    foreach (var process in owned.AsEnumerable().Reverse())
+                    {
+                        try { if (!process.HasExited) { process.Kill(); process.WaitForExit(5000); } }
+                        catch (Exception error) { Log("Fixture cleanup error: " + error.Message); }
+                        process.Dispose();
+                    }
+                }
+            }
+        }
+
+        static void Run(bool negativeControl)
+        {
+            string fixture = Path.Combine(app, "E2EGame.exe"), missing = Path.Combine(app, "MissingGame.exe");
+            File.Copy(typeof(Program).Assembly.Location, fixture);
+            File.Copy(fixture, missing);
+            string normalEvents = Path.Combine(output, "cooperative.events"), stubbornEvents = Path.Combine(output, "stubborn.events");
+            var configurator = Start("KidLauncher.Configurator.exe");
+            var settings = Window(configurator, "KidLauncher · Parent configurator");
+            ((WindowPattern)settings.GetCurrentPattern(WindowPattern.Pattern)).SetWindowVisualState(WindowVisualState.Maximized);
+            ConfigureGame(settings, Cooperative, fixture, normalEvents, false);
+            ConfigureGame(settings, Stubborn, fixture, stubbornEvents, true);
+            ConfigureGame(settings, Missing, missing, Path.Combine(output, "missing.events"), false);
+            ((SelectionItemPattern)Find(settings, ControlType.TabItem, "Controls").GetCurrentPattern(SelectionItemPattern.Pattern)).Select();
+            if (negativeControl)
+            {
+                Desktop.Activate(Handle(settings));
+                Find(settings, ControlType.Edit, "Exit-game key").SetFocus();
+                Desktop.Key(0x76); // Deliberately configure F7; the F6 journey must fail.
+            }
+            foreach (AutomationElement element in settings.FindAll(TreeScope.Descendants,
+                new PropertyCondition(AutomationElement.IsScrollPatternAvailableProperty, true)))
+            {
+                var scroll = (ScrollPattern)element.GetCurrentPattern(ScrollPattern.Pattern);
+                if (!element.Current.IsOffscreen && scroll.Current.VerticallyScrollable)
+                    scroll.SetScrollPercent(ScrollPattern.NoScroll, 100);
+            }
+            Password(settings, Find(settings, ControlType.Edit, "New PIN"), Pin);
+            Password(settings, Find(settings, ControlType.Edit, "Repeat new PIN"), Pin);
+            Invoke(settings, "Change PIN");
+            Invoke(settings, "Save configuration");
+            Until(() => File.Exists(Path.Combine(app, "games.json")) && Games().Length == 3 &&
+                !string.IsNullOrEmpty((string)((Dictionary<string, object>)Configuration()["Controls"])["PinHash"]), "configuration saved by the GUI");
+            var games = Games();
+            Check((string)games[0]["Title"] == Cooperative && (string)games[1]["Title"] == Stubborn &&
+                (string)games[2]["Title"] == Missing && (string)games[0]["ExecutablePath"] == fixture &&
+                ((string)games[1]["Arguments"]).Contains("--ignore-close"), "GUI saves distinct game titles, executable and arguments");
+            Check((string)((Dictionary<string, object>)Configuration()["Controls"])["PinHash"] != Pin,
+                "GUI persists a PIN hash rather than the plaintext PIN");
+            Check(Convert.ToInt32(((Dictionary<string, object>)Configuration()["Controls"])["ExitVirtualKey"]) == (negativeControl ? 0x76 : 0x75),
+                "saved exit key matches the positive or deliberate negative control");
+            Desktop.Capture(Path.Combine(output, "01-configured.png"));
+            Close(configurator, settings);
+            configurator = Start("KidLauncher.Configurator.exe");
+            settings = Window(configurator, "KidLauncher · Parent configurator");
+            Until(() => Value(settings, "Title") == Cooperative && Value(settings, "ExecutablePath") == fixture,
+                "saved settings survive closing and reopening the configurator");
+            Log("PASS: configuration and PIN created through the GUI, saved, and reloaded.");
+            Close(configurator, settings);
+
+            var unrelated = Start("E2EGame.exe", "--test-game " + Quote(Path.Combine(output, "unrelated.events")));
+            Until(() => File.Exists(Path.Combine(output, "unrelated.events")), "unrelated same-name control process starts");
+            string originalMode = Desktop.DisplayMode();
+            var launcher = Start("KidLauncher.exe");
+            var room = Window(launcher, "KidLauncher · Let's play");
+            Ready(room, launcher);
+            Desktop.Capture(Path.Combine(output, "02-launcher-ready.png"));
+            using (new DesktopRecording(Path.Combine(output, "frames")))
+            {
+                // Pass over the neighboring tile before clicking the intended game.
+                Move(Find(room, ControlType.Button, Stubborn));
+                Play(room, launcher, Cooperative, normalEvents, false, unrelated, originalMode);
+                Play(room, launcher, Stubborn, stubbornEvents, true, unrelated, originalMode);
+                File.Delete(missing);
+                Click(Find(room, ControlType.Button, Missing));
+                Find(room, ControlType.Text, "That adventure couldn't start.");
+                Check(!File.Exists(Path.Combine(output, "missing.events")), "missing executable never starts a game");
+                Desktop.Capture(Path.Combine(output, "05-launch-error.png"));
+                File.Copy(fixture, missing);
+                Click(Find(room, ControlType.Button, "Back to my games"));
+                Ready(room, launcher);
+                Check(!unrelated.HasExited, "unrelated same-name process survives both shutdown paths and launch failure");
+
+                Desktop.Activate(Handle(room));
+                Desktop.Chord(0x11, 0x12, 0x53);
+                var pinWindow = Window(launcher, "Adult PIN");
+                var pinBox = Wait(() => pinWindow.FindFirst(TreeScope.Descendants,
+                    new PropertyCondition(AutomationElement.IsPasswordProperty, true)), "adult PIN password field");
+                Password(pinWindow, pinBox, "1111");
+                Invoke(pinWindow, "Unlock");
+                Find(pinWindow, ControlType.Text, "That PIN did not match.");
+                Check(!launcher.HasExited, "wrong PIN keeps the launcher running");
+                Desktop.Capture(Path.Combine(output, "06-pin-denied.png"));
+                Password(pinWindow, pinBox, Pin);
+                Invoke(pinWindow, "Unlock");
+                var adult = Window(launcher, "Grown-up controls");
+                Desktop.Capture(Path.Combine(output, "07-pin-unlocked.png"));
+                Invoke(adult, "Exit launcher to Windows");
+                Until(() => launcher.HasExited, "PIN-authorized desktop exit");
+                Check(Desktop.DisplayMode() == originalMode && !File.Exists(Journal), "adult exit leaves display unchanged and no pending recovery journal");
+            }
+            Log("PASS: wrong PIN rejected; saved PIN unlocks the adult route and permits a clean exit.");
+        }
+
+        static string Journal => Path.Combine(app, "Data", "display-session.json");
+        static void ConfigureGame(AutomationElement settings, string title, string executable, string events, bool stubborn)
+        {
+            Invoke(settings, "＋ Add");
+            Set(settings, "Title", title); Set(settings, "ExecutablePath", executable);
+            Set(settings, "Arguments", "--test-game " + Quote(events) + (stubborn ? " --ignore-close" : ""));
+            Set(settings, "WorkingDirectory", app);
+        }
+
+        static void Play(AutomationElement room, Process launcher, string title, string events, bool stubborn, Process unrelated, string mode)
+        {
+            Desktop.Activate(Handle(room));
+            var tile = Find(room, ControlType.Button, title);
+            Click(tile);
+            // A second activation while loading must not launch another instance.
+            Desktop.Key(0x0D);
+            Until(() => File.Exists(events) && File.ReadAllLines(events).Any(l => l.StartsWith("START ")), title + " starts");
+            int pid = int.Parse(File.ReadAllLines(events).Single(l => l.StartsWith("START ")).Substring(6));
+            var game = Process.GetProcessById(pid); owned.Add(game);
+            var window = Window(game, null);
+            Until(() => Desktop.Foreground == Handle(window), title + " receives foreground input");
+            Check(!Desktop.Visible(Handle(room)), "launcher hides while " + title + " is running");
+            Until(() => File.Exists(Journal), "real game session persists recovery state");
+            Desktop.Capture(Path.Combine(output, stubborn ? "04-stubborn-game.png" : "03-cooperative-game.png"));
+            Check(!game.HasExited && !unrelated.HasExited, "game and unrelated control are alive before F6");
+            Desktop.Key(0x75); // One physical F6 down/up, not WM_HOTKEY or a direct session call.
+            Until(() => game.HasExited, title + " exits after a single F6", 20000);
+            Ready(room, launcher);
+            Until(() => !File.Exists(Journal), "recovery finishes before reusing the launcher");
+            string[] lines = File.ReadAllLines(events);
+            Check(lines.Count(l => l.StartsWith("START ")) == 1, "repeated activation starts exactly one game");
+            Check(lines.Any(l => l.StartsWith("CLOSE_REQUEST ")), "F6 reaches the real game's close handler");
+            Check(lines.Any(l => l.StartsWith("CLOSE_ACCEPTED ")) != stubborn,
+                stubborn ? "force exit kills a game that refuses graceful close" : "cooperative game accepts graceful close");
+            Check(!unrelated.HasExited && Desktop.DisplayMode() == mode, "shutdown preserves the unrelated process and original display mode");
+            Log("PASS: " + (stubborn ? "forced" : "graceful") + " one-press F6 shutdown and foreground launcher return.");
+        }
+
+        static void Ready(AutomationElement room, Process launcher)
+        {
+            Until(() => !launcher.HasExited && Desktop.Visible(Handle(room)) &&
+                Desktop.Foreground == Handle(room) && FindNow(room, ControlType.Button, Cooperative)?.Current.IsEnabled == true,
+                "launcher is visible, foreground and ready");
+        }
+        static Dictionary<string, object> Configuration() => (Dictionary<string, object>)new JavaScriptSerializer().DeserializeObject(File.ReadAllText(Path.Combine(app, "games.json")));
+        static Dictionary<string, object>[] Games() => ((object[])Configuration()["Games"]).Cast<Dictionary<string, object>>().ToArray();
+        static string Quote(string text) => "\"" + text + "\"";
+        static Process Start(string executable, string arguments = "")
+        {
+            var process = Process.Start(new ProcessStartInfo(Path.Combine(app, executable), arguments) { WorkingDirectory = app, UseShellExecute = false, CreateNoWindow = true });
+            owned.Add(process); return process;
+        }
+        static void Close(Process process, AutomationElement window)
+        {
+            ((WindowPattern)window.GetCurrentPattern(WindowPattern.Pattern)).Close();
+            Until(() => process.HasExited, "configurator closes without an unsaved-changes prompt");
+        }
+        static AutomationElement Window(Process process, string title) => Wait(() => AutomationElement.RootElement.FindFirst(TreeScope.Children,
+            title == null ? (Condition)new PropertyCondition(AutomationElement.ProcessIdProperty, process.Id) : new AndCondition(
+                new PropertyCondition(AutomationElement.ProcessIdProperty, process.Id), new PropertyCondition(AutomationElement.NameProperty, title))), "window for PID " + process.Id + " " + title);
+        static AutomationElement FindNow(AutomationElement root, ControlType type, string name) => root.FindFirst(TreeScope.Descendants,
+            new AndCondition(new PropertyCondition(AutomationElement.ControlTypeProperty, type), new PropertyCondition(AutomationElement.NameProperty, name)));
+        static AutomationElement Find(AutomationElement root, ControlType type, string name) => Wait(() => FindNow(root, type, name), "control " + name);
+        static AutomationElement Field(AutomationElement root, string id) => Wait(() => root.FindFirst(TreeScope.Descendants,
+            new PropertyCondition(AutomationElement.AutomationIdProperty, id)), "editable field " + id);
+        static void Set(AutomationElement root, string id, string value) => ((ValuePattern)Field(root, id).GetCurrentPattern(ValuePattern.Pattern)).SetValue(value);
+        static string Value(AutomationElement root, string id) => ((ValuePattern)Field(root, id).GetCurrentPattern(ValuePattern.Pattern)).Current.Value;
+        static void Invoke(AutomationElement root, string name) => ((InvokePattern)Find(root, ControlType.Button, name).GetCurrentPattern(InvokePattern.Pattern)).Invoke();
+        static IntPtr Handle(AutomationElement element) => new IntPtr(element.Current.NativeWindowHandle);
+        static void Password(AutomationElement window, AutomationElement box, string text)
+        {
+            Desktop.Activate(Handle(window)); box.SetFocus(); Desktop.Type(text);
+        }
+        static void Move(AutomationElement element)
+        {
+            var point = element.GetClickablePoint(); Desktop.MovePointer((int)point.X, (int)point.Y);
+        }
+        static void Click(AutomationElement element)
+        {
+            var point = element.GetClickablePoint(); Desktop.Click((int)point.X, (int)point.Y);
+        }
+        static T Wait<T>(Func<T> probe, string description) where T : class
+        {
+            T result = null; Until(() => (result = probe()) != null, description); return result;
+        }
+        static void Until(Func<bool> probe, string description, int timeout = 20000)
+        {
+            var timer = Stopwatch.StartNew();
+            while (timer.ElapsedMilliseconds < timeout)
+            {
+                try { if (probe()) { Log("OK: " + description); return; } }
+                catch (ElementNotAvailableException) { }
+                catch (COMException) { }
+                catch (IOException) { }
+                Thread.Sleep(100);
+            }
+            throw new TimeoutException(description);
+        }
+        static void Check(bool condition, string description)
+        {
+            if (!condition) throw new InvalidOperationException(description);
+            Log("OK: " + description);
+        }
+        static void Log(string text) { Console.WriteLine(text); report.WriteLine(DateTime.UtcNow.ToString("O") + " " + text); }
+        static void DumpWindows()
+        {
+            var text = new StringBuilder();
+            foreach (AutomationElement window in AutomationElement.RootElement.FindAll(TreeScope.Children, Condition.TrueCondition))
+            {
+                text.AppendLine(window.Current.ProcessId + " " + window.Current.Name);
+                if (!owned.Any(p => p.Id == window.Current.ProcessId)) continue;
+                foreach (AutomationElement node in window.FindAll(TreeScope.Descendants, Condition.TrueCondition))
+                    text.AppendLine("  " + node.Current.ControlType.ProgrammaticName + " " + node.Current.AutomationId + " " + node.Current.Name + " offscreen=" + node.Current.IsOffscreen);
+            }
+            File.WriteAllText(Path.Combine(output, "windows.uia.txt"), text.ToString());
+        }
+    }
+}
