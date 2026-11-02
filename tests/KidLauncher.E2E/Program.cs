@@ -207,9 +207,20 @@ namespace KidLauncher.E2E
             ((WindowPattern)window.GetCurrentPattern(WindowPattern.Pattern)).Close();
             Until(() => process.HasExited, "configurator closes without an unsaved-changes prompt");
         }
-        static AutomationElement Window(Process process, string title) => Wait(() => AutomationElement.RootElement.FindFirst(TreeScope.Children,
-            title == null ? (Condition)new PropertyCondition(AutomationElement.ProcessIdProperty, process.Id) : new AndCondition(
-                new PropertyCondition(AutomationElement.ProcessIdProperty, process.Id), new PropertyCondition(AutomationElement.NameProperty, title))), "window for PID " + process.Id + " " + title);
+        static AutomationElement Window(Process process, string title) => Wait(() =>
+        {
+            foreach (AutomationElement window in AutomationElement.RootElement.FindAll(TreeScope.Children,
+                new PropertyCondition(AutomationElement.ProcessIdProperty, process.Id)))
+            {
+                if (title == null || window.Current.Name == title) return window;
+                // WPF exposes owned modal windows below their owner in the UIA tree.
+                var dialog = window.FindFirst(TreeScope.Descendants, new AndCondition(
+                    new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Window),
+                    new PropertyCondition(AutomationElement.NameProperty, title)));
+                if (dialog != null) return dialog;
+            }
+            return null;
+        }, "window for PID " + process.Id + " " + title);
         static AutomationElement FindNow(AutomationElement root, ControlType type, string name) => root.FindFirst(TreeScope.Descendants,
             new AndCondition(new PropertyCondition(AutomationElement.ControlTypeProperty, type), new PropertyCondition(AutomationElement.NameProperty, name)));
         static AutomationElement Find(AutomationElement root, ControlType type, string name) => Wait(() => FindNow(root, type, name), "control " + name);

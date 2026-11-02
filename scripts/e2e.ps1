@@ -19,6 +19,8 @@ function Invoke-Journey([string]$Name, [bool]$Negative) {
     $arguments = "`"$app`" `"$output`""
     if ($Negative) { $arguments += ' --negative-control' }
     $process = Start-Process $runner -ArgumentList $arguments -PassThru -RedirectStandardOutput "$output/stdout.txt" -RedirectStandardError "$output/stderr.txt"
+    # Retain the native handle so Windows PowerShell can read ExitCode after exit.
+    $null = $process.Handle
     try {
         if (-not $process.WaitForExit(180000)) {
             $process.Kill()
@@ -29,7 +31,7 @@ function Invoke-Journey([string]$Name, [bool]$Negative) {
         Get-Content "$output/stderr.txt"
         if ($Negative) {
             $result = Get-Content "$output/results.txt" -Raw
-            if ($process.ExitCode -eq 0 -or $result -notmatch 'FAIL: System.TimeoutException: E2E cooperative game exits after a single F6') {
+            if ($process.ExitCode -ne 1 -or $result -notmatch 'FAIL: System.TimeoutException: E2E cooperative game exits after a single F6') {
                 throw 'Negative control must fail specifically because F6 cannot close the game when the GUI configures F7.'
             }
             Write-Host 'PASS: negative control detected the deliberately incorrect exit key.'
