@@ -101,7 +101,7 @@ namespace KidLauncher.Core
                     MountTimeoutMs = game.Disc.MountTimeoutMs, UnmountAfterExit = game.Disc.UnmountAfterExit,
                     RestorePreviousImage = game.Disc.RestorePreviousImage
                 };
-                session = new RecoverySession { OriginalDisplay = display.Capture(), Disc = disc };
+                session = new RecoverySession { OriginalDisplay = display.Capture(), Disc = disc, ProcessNames = new List<string>(game.ProcessNames) };
                 recovery.Save(session);
                 if (disc.Enabled)
                 {
@@ -155,11 +155,12 @@ namespace KidLauncher.Core
                     {
                         if (observed.Any(p => p.Id == child.Id && p.StartTimeUtcTicks == child.StartTimeUtcTicks)) continue;
                         observed.Add(child);
+                        Report("Detected child process: " + child.Name + " PID " + child.Id);
+                        if (session.ProcessNames.Count > 0 && !session.ProcessNames.Contains(child.Name, StringComparer.OrdinalIgnoreCase)) continue;
                         session.Processes.Add(child);
                         recovery.Save(session);
-                        Report("Detected child process: " + child.Name + " PID " + child.Id);
                     }
-                    var alive = observed.Where(processes.IsAlive).ToList();
+                    var alive = session.Processes.Where(processes.IsAlive).ToList();
                     if (alive.Count == 0 && startup.ElapsedMilliseconds >= game.StartupGraceMs) break;
                     if (exitRequested || cancellationToken.IsCancellationRequested)
                     {
@@ -216,6 +217,7 @@ namespace KidLauncher.Core
             foreach (var child in processes.FindChildren(session.Processes))
             {
                 if (session.Processes.Any(p => p.Id == child.Id && p.StartTimeUtcTicks == child.StartTimeUtcTicks)) continue;
+                if (session.ProcessNames.Count > 0 && !session.ProcessNames.Contains(child.Name, StringComparer.OrdinalIgnoreCase)) continue;
                 session.Processes.Add(child); discovered = true;
             }
             if (discovered) recovery.Save(session);

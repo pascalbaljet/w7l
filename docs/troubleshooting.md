@@ -27,6 +27,8 @@ RegisterHotKey and low-level keyboard hooks cannot guarantee delivery from every
 
 KidLauncher tracks process identity and verified descendants, not every process with a matching executable name. A bootstrapper that delegates through an unrelated service, an already-running process, or an intermediate process that disappears before discovery may need a direct game executable instead. Do not broaden tracking to unrelated processes merely to make a game close.
 
+With no process names selected, KidLauncher tracks all verified descendants. If you select names, it tracks only matching descendants and the initial process. Other descendants remain visible as test candidates but do not receive exit requests. Select every executable that needs the game's display and disc settings. Recovery preserves the selection saved when the session started.
+
 ## A disc will not mount
 
 1. Verify the image and `VCDMount.exe` paths.

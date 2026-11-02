@@ -12,7 +12,7 @@ namespace KidLauncher.Core
         {
             if (!File.Exists(path)) return null;
             var session = new JavaScriptSerializer().Deserialize<RecoverySession>(File.ReadAllText(path));
-            if (session == null || session.Processes == null || session.OriginalDisplay == null)
+            if (session == null || session.Processes == null || session.ProcessNames == null || session.OriginalDisplay == null)
                 throw new InvalidDataException("Recovery state is invalid. Preserve the file and use the manual recovery instructions.");
             return session;
         }

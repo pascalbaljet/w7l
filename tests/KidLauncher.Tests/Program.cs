@@ -19,7 +19,7 @@ namespace KidLauncher.Tests
                 PreviousDiscRestored, RecoveryWaitsForGame, FailedRestorationIsRetried, ConcurrentSessionsRejected,
                 DisabledForceExitKeepsResources, UnknownPriorImageDoesNotChangeDisc, WindowsProcessIdentity,
                 FutureSchemaCannotBeOverwritten, PreviousDiscRecoveryIsIdempotent, RecoveryFindsUnrecordedChild,
-                ReportingFailureDoesNotLockSession, UncertainStartRequiresAdultRecovery };
+                ReportingFailureDoesNotLockSession, UncertainStartRequiresAdultRecovery, SelectedProcessNamesLeaveHelpersAlone };
             int failed = 0;
             foreach (var test in tests)
             {
@@ -305,6 +305,27 @@ namespace KidLauncher.Tests
             }
         }
 
+        private static void SelectedProcessNamesLeaveHelpersAlone()
+        {
+            using (var f = new Fixture())
+            {
+                f.Processes.ChildHandoff = true; f.Processes.HelperAlive = true;
+                f.Game.ProcessNames.Add("GAME");
+                var active = f.Session.RunAsync(f.Game, CancellationToken.None);
+                Complete(f.Session.RequestExitAsync()); Complete(active);
+                Assert(f.Processes.ChildTerminated && f.Processes.HelperAlive && !f.Processes.UnrelatedTerminated,
+                    "Selected game process names must not force-close an excluded helper.");
+                Assert(f.Session.ObservedProcesses.Count == 3 && !File.Exists(f.RecoveryPath),
+                    "Excluded helpers must remain observable without holding the completed session open.");
+                File.WriteAllText(f.RecoveryPath, new JavaScriptSerializer().Serialize(new RecoverySession {
+                    OriginalDisplay = f.Display.Capture(), ProcessNames = new List<string> { "game" },
+                    Processes = new List<TrackedProcess> { FakeProcesses.Initial }
+                }));
+                Complete(f.Session.RecoverAsync());
+                Assert(f.Processes.HelperAlive && !File.Exists(f.RecoveryPath), "Startup recovery ignored the saved game-process selection.");
+            }
+        }
+
         private sealed class Fixture : IDisposable
         {
             public readonly string Root = Path.Combine(Path.GetTempPath(), "KidLauncherTests-" + Guid.NewGuid().ToString("N"));
@@ -351,16 +372,19 @@ namespace KidLauncher.Tests
         {
             public static readonly TrackedProcess Initial = new TrackedProcess { Id = 101, StartTimeUtcTicks = 1000, Name = "bootstrap" };
             private readonly TrackedProcess child = new TrackedProcess { Id = 102, StartTimeUtcTicks = 2000, Name = "game" };
+            private readonly TrackedProcess helper = new TrackedProcess { Id = 103, StartTimeUtcTicks = 3000, Name = "helper" };
             public bool Alive = true, ChildHandoff, ChildTerminated, UnrelatedTerminated, CloseWorks, Closed, Terminated, Started, FailStart, FailIdentity;
+            public bool HelperAlive;
             public IReadOnlyList<TrackedProcess> Snapshot() => new[] { Initial };
             public TrackedProcess Start(Game game, string directory) { if (FailStart) throw new IOException("start failed"); Started = true; if (FailIdentity) throw new UncertainProcessStartException("identity unavailable"); return Initial; }
-            public IReadOnlyList<TrackedProcess> FindChildren(IReadOnlyList<TrackedProcess> parents) => ChildHandoff ? new[] { child } : new TrackedProcess[0];
-            public bool IsAlive(TrackedProcess p) => Alive && (!ChildHandoff || p.Id == child.Id);
+            public IReadOnlyList<TrackedProcess> FindChildren(IReadOnlyList<TrackedProcess> parents) => HelperAlive ? new[] { child, helper } : ChildHandoff ? new[] { child } : new TrackedProcess[0];
+            public bool IsAlive(TrackedProcess p) => p.Id == helper.Id ? HelperAlive : Alive && (!ChildHandoff || p.Id == child.Id);
             public void RequestClose(TrackedProcess p) { Closed = true; if (CloseWorks) Alive = false; }
             public void Terminate(TrackedProcess p)
             {
                 if (p.Id != Initial.Id && p.Id != child.Id) UnrelatedTerminated = true;
                 if (p.Id == child.Id) ChildTerminated = true;
+                if (p.Id == helper.Id) HelperAlive = false;
                 Terminated = true; Alive = false;
             }
         }
