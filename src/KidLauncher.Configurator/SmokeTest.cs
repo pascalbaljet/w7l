@@ -51,7 +51,7 @@ namespace KidLauncher.Configurator
                 var tab = (TabItem)tabs.SelectedItem;
                 var nodes = Descendants((DependencyObject)tab.Content).ToArray();
                 Assert(ActualWidth >= 900 && ActualHeight >= 600, names[i] + ": window has a useful rendered size.", report);
-                Assert(nodes.OfType<Button>().Count() >= 2, names[i] + ": actionable native buttons exist.", report);
+                Assert(nodes.OfType<Button>().Any(b => b.IsVisible && b.IsEnabled), names[i] + ": actionable native buttons exist.", report);
                 Assert(nodes.OfType<TextBlock>().Any(t => !string.IsNullOrWhiteSpace(t.Text)), names[i] + ": explanatory labels render.", report);
                 Assert(((FrameworkElement)tab.Content).ActualWidth > 100 && ((FrameworkElement)tab.Content).ActualHeight > 100, names[i] + ": active tab is laid out.", report);
                 if (indices[i] == 0)
