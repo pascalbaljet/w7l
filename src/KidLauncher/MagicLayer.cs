@@ -133,7 +133,7 @@ namespace KidLauncher
                     double phase = i * 1.7;
                     double wave = Motion ? Math.Sin(now * 1.15 + phase) : Math.Sin(phase);
                     var point = new Point((0.04 + (i * 0.61803398875 % 1) * 0.92) * ActualWidth,
-                        (0.04 + (i * 0.38196601125 % 1) * 0.92) * ActualHeight);
+                        (0.04 + (i * 0.41421356237 % 1) * 0.92) * ActualHeight);
                     if (Motion) point.Y += Math.Sin(now * 0.35 + phase) * 7;
                     DrawStar(drawing, point, 3 + i % 5, phase, 0.35 + wave * 0.22, Inks[i % Inks.Length]);
                 }
