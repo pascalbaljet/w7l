@@ -114,16 +114,21 @@ namespace KidLauncher.Configurator
             modes.Items.Add("Use current resolution");
             try
             {
-                foreach (var mode in display.Enumerate().GroupBy(m => new { m.Width, m.Height, m.Frequency, m.BitsPerPixel }).Select(group => group.First()))
+                foreach (var mode in display.Enumerate())
                     modes.Items.Add(mode);
             }
             catch (Exception ex) { panel.Children.Add(Note("Display enumeration failed: " + ex.Message)); }
             modes.SelectedIndex = 0;
             if (g.Resolution != null)
             {
-                var match = modes.Items.OfType<DisplayMode>().FirstOrDefault(m => m.Width == g.Resolution.Width && m.Height == g.Resolution.Height && m.Frequency == g.Resolution.Frequency && m.BitsPerPixel == g.Resolution.BitsPerPixel);
+                var match = modes.Items.OfType<DisplayMode>()
+                    .Where(m => m.Width == g.Resolution.Width && m.Height == g.Resolution.Height &&
+                        m.Frequency == g.Resolution.Frequency && m.BitsPerPixel == g.Resolution.BitsPerPixel &&
+                        (g.Resolution.NativeData == null || m.NativeData.SequenceEqual(g.Resolution.NativeData)))
+                    .OrderByDescending(m => m.EnumerationIndex == g.Resolution.EnumerationIndex).FirstOrDefault();
                 if (match == null) { modes.Items.Add(g.Resolution); match = g.Resolution; }
                 modes.SelectedItem = match;
+                g.Resolution = match;
             }
             modes.SelectionChanged += (s, e) => g.Resolution = modes.SelectedItem as DisplayMode;
             panel.Children.Add(modes); panel.Children.Add(Button("Test selected resolution (15 seconds, always restore)", () => TestResolution(g.Resolution)));

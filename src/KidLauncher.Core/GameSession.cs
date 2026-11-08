@@ -116,7 +116,7 @@ namespace KidLauncher.Core
                 }
                 if (game.Resolution != null)
                 {
-                    Report("Applying resolution: " + game.Resolution);
+                    Report("Applying resolution: " + game.Resolution.DescribeNative());
                     display.Apply(game.Resolution);
                 }
                 Report("Display immediately before game launch: " + display.Capture());

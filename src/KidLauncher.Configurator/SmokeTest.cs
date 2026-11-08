@@ -57,7 +57,27 @@ namespace KidLauncher.Configurator
                 if (indices[i] == 0)
                 {
                     Assert(games.SelectedItem is KidLauncher.Core.Game && nodes.OfType<TextBox>().Count() >= 8, "Games: editable game fields and a selected game exist.", report);
-                    Assert(nodes.OfType<ComboBox>().Any(), "Games: driver-mode dropdown exists.", report);
+                    var modes = nodes.OfType<ComboBox>().Single();
+                    var available = display.Enumerate();
+                    var choices = modes.Items.OfType<KidLauncher.Core.DisplayMode>().ToArray();
+                    Assert(choices.Length == available.Count && choices.Length > 0,
+                        "Games: every driver mode is offered without deduplication.", report);
+                    foreach (var group in choices.GroupBy(m => new { m.Width, m.Height, m.Frequency, m.BitsPerPixel }))
+                        Assert(group.Select(m => m.VariantNumber).SequenceEqual(Enumerable.Range(1, group.Count())),
+                            "Games: duplicate numbering starts at one for " + group.Key + ".", report);
+                    var chosen = choices.Last();
+                    modes.SelectedItem = chosen;
+                    BuildEditor();
+                    await Dispatcher.InvokeAsync(() => { UpdateLayout(); }, DispatcherPriority.ApplicationIdle);
+                    nodes = Descendants((DependencyObject)tab.Content).ToArray();
+                    modes = nodes.OfType<ComboBox>().Single();
+                    var reopened = modes.SelectedItem as KidLauncher.Core.DisplayMode;
+                    Assert(reopened != null && reopened.EnumerationIndex == chosen.EnumerationIndex &&
+                        reopened.VariantNumber == chosen.VariantNumber && reopened.NativeData.SequenceEqual(chosen.NativeData),
+                        "Games: rebuilding the editor preserves the exact numbered native mode.", report);
+                    modes.BringIntoView();
+                    await Dispatcher.InvokeAsync(() => { UpdateLayout(); }, DispatcherPriority.ApplicationIdle);
+                    CaptureWindow(stem + "-Games-Resolution.png");
                 }
                 if (indices[i] == 1)
                 {

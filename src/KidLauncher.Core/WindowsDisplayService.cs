@@ -14,11 +14,16 @@ namespace KidLauncher.Core
         public IReadOnlyList<DisplayMode> Enumerate()
         {
             var result = new List<DisplayMode>();
+            var variants = new Dictionary<string, int>();
             var device = PrimaryDevice();
             for (int i = 0; ; i++)
             {
                 var mode = Read(device, i);
                 if (mode == null) break;
+                var label = mode.ToString();
+                variants.TryGetValue(label, out var number);
+                variants[label] = mode.VariantNumber = number + 1;
+                mode.EnumerationIndex = i;
                 result.Add(mode);
             }
             return result;

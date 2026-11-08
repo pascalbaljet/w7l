@@ -69,9 +69,15 @@ namespace KidLauncher.Core
         public int Height { get; set; }
         public int BitsPerPixel { get; set; }
         public int Frequency { get; set; }
+        public int VariantNumber { get; set; }
+        public int? EnumerationIndex { get; set; }
         // Full native DEVMODE, including device-specific data, for exact recovery.
         public byte[] NativeData { get; set; }
-        public override string ToString() => Width + " × " + Height + " / " + Frequency + " Hz / " + BitsPerPixel + " bit";
+        public override string ToString() => (VariantNumber > 0 ? "(" + VariantNumber + ") " : "") +
+            Width + " × " + Height + " / " + Frequency + " Hz / " + BitsPerPixel + " bit";
+        public string DescribeNative() => ToString() + "; enumeration index=" +
+            (EnumerationIndex.HasValue ? EnumerationIndex.Value.ToString() : "unknown") +
+            "; native DEVMODE base64=" + (NativeData == null ? "none" : Convert.ToBase64String(NativeData));
     }
 
     public sealed class TrackedProcess

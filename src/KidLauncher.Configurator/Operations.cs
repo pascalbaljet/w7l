@@ -125,11 +125,14 @@ namespace KidLauncher.Configurator
             {
                 BeforeTest(); ownership = AcquireStandaloneOwnership(); SetBusy(true); started = true;
                 SaveDisplayTestJournal(display.Capture());
+                log.Write("Display test requested: " + (mode == null ? "current resolution" : mode.DescribeNative()));
                 if (mode != null) display.Apply(mode);
-                var dialog = new Window { Owner = this, Title = "Display test — automatic restore", Width = 430, Height = 230, ResizeMode = ResizeMode.NoResize, WindowStartupLocation = WindowStartupLocation.CenterScreen, Topmost = true };
+                log.Write("Display test actual: " + display.Capture().DescribeNative());
+                var dialog = new Window { Owner = this, Title = "Display test — automatic restore", Width = 430, SizeToContent = SizeToContent.Height, ResizeMode = ResizeMode.NoResize, WindowStartupLocation = WindowStartupLocation.CenterScreen, Topmost = true };
                 var p = Panel(); dialog.Content = p; int seconds = 15;
                 var countdown = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = 18, Margin = new Thickness(0, 10, 0, 16) }; p.Children.Add(countdown);
-                Action update = () => countdown.Text = "Can you see this correctly? The original mode will be restored in " + seconds + " seconds, even if you confirm.";
+                Action update = () => countdown.Text = (mode == null ? "Current resolution" : mode.ToString()) +
+                    "\nCan you see this correctly? The original mode will be restored in " + seconds + " seconds, even if you confirm.";
                 update(); p.Children.Add(Button("Looks good — restore now", () => dialog.DialogResult = true));
                 var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
                 timer.Tick += (s, e) => { seconds--; update(); if (seconds <= 0) dialog.Close(); };
@@ -141,7 +144,11 @@ namespace KidLauncher.Configurator
             {
                 if (started)
                 {
-                    try { RestoreDisplayTest(); status.Text = "Original display mode restored after test."; }
+                    try
+                    {
+                        RestoreDisplayTest(); status.Text = "Original display mode restored after test.";
+                        log.Write("Display test restored: " + display.Capture().DescribeNative());
+                    }
                     catch (Exception ex) { restorePending = true; failure = failure == null ? ex : new AggregateException(failure, ex); }
                     SetBusy(false);
                 }

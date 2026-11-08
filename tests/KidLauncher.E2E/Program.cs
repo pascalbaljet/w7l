@@ -260,7 +260,7 @@ namespace KidLauncher.E2E
             Check(choices.All(name => !string.IsNullOrWhiteSpace(name)) && choices.Distinct().Count() == choices.Length,
                 "display choices have distinct visible labels");
             Desktop.Capture(Path.Combine(output, "00-display-choices.png"));
-            string selectedMode = choices.LastOrDefault(name => name.StartsWith("640 × 480 /", StringComparison.Ordinal)) ?? choices[1];
+            string selectedMode = choices.LastOrDefault(name => name.Contains(") 640 × 480 /")) ?? choices[1];
             ((SelectionItemPattern)Find(modes, ControlType.ListItem, selectedMode).GetCurrentPattern(SelectionItemPattern.Pattern)).Select();
             dropdown.Collapse();
             modes.SetFocus();
@@ -274,11 +274,28 @@ namespace KidLauncher.E2E
                 Check(afterWheel == selectedMode, "scrolling over the closed resolution dropdown must not change the selected mode");
             }
             Invoke(settings, "Save configuration");
-            string expectedDisplay = selectedMode.Split('/')[0].Trim().Replace(" × ", "x") + " ";
+            string expectedDisplay = selectedMode.Substring(selectedMode.IndexOf(") ", StringComparison.Ordinal) + 2)
+                .Split('/')[0].Trim().Replace(" × ", "x") + " ";
             Until(() => Games()[0]["Resolution"] != null, "selected resolution is saved");
             var resolution = (Dictionary<string, object>)Games()[0]["Resolution"];
             Check(expectedDisplay == resolution["Width"] + "x" + resolution["Height"] + " ", "saved mode matches the selected dimensions");
+            Check(selectedMode.StartsWith("(" + resolution["VariantNumber"] + ") ", StringComparison.Ordinal) &&
+                resolution["EnumerationIndex"] != null && resolution["NativeData"] != null,
+                "saved mode preserves the selected variant, driver index and native data");
             string mode = Desktop.DisplayMode();
+            Invoke(settings, "Test selected resolution (15 seconds, always restore)");
+            var displayTest = Window(configurator, "Display test — automatic restore");
+            Check(displayTest.FindAll(TreeScope.Descendants,
+                new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Text)).Cast<AutomationElement>()
+                .Any(text => text.Current.Name.StartsWith(selectedMode, StringComparison.Ordinal)),
+                "display tester identifies the selected numbered mode");
+            Desktop.Capture(Path.Combine(output, "00-numbered-display-test.png"));
+            Invoke(displayTest, "Looks good — restore now");
+            Until(() => Desktop.DisplayMode() == mode, "display tester restores the original mode");
+            string displayLog = File.ReadAllText(Path.Combine(app, "Data", "Logs", "launcher.log"));
+            Check(displayLog.Contains("Display test requested: " + selectedMode + "; enumeration index=" + resolution["EnumerationIndex"]) &&
+                displayLog.Contains("native DEVMODE base64=") && displayLog.Contains("Display test actual:") &&
+                displayLog.Contains("Display test restored:"), "display test logs selected native variant, actual mode and restoration");
             Invoke(settings, "▶ Test game (F6 exits)");
             Until(() => File.Exists(events) && File.ReadAllLines(events).Any(l => l.StartsWith("START ")), "configurator test game starts");
             int pid = int.Parse(File.ReadAllLines(events).Single(l => l.StartsWith("START ")).Substring(6));
