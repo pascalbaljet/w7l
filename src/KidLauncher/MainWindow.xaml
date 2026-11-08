@@ -1,41 +1,48 @@
 <Window x:Class="KidLauncher.MainWindow"
  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
- xmlns:local="clr-namespace:KidLauncher"
  Title="KidLauncher" WindowStyle="None" ResizeMode="NoResize"
  WindowState="Maximized" WindowStartupLocation="CenterScreen" Background="#14233B"
- ShowInTaskbar="False" FontFamily="Segoe UI" Foreground="White">
+ ShowInTaskbar="False" FontFamily="Segoe UI" Foreground="White" UseLayoutRounding="True">
  <Grid x:Name="Backdrop">
   <Grid x:Name="BackdropAccents" IsHitTestVisible="False" ClipToBounds="True">
-   <Ellipse Width="850" Height="700" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="-260,-330,0,0">
-    <Ellipse.Fill><RadialGradientBrush><GradientStop Color="#183DDACB" Offset="0"/><GradientStop Color="#003DDACB" Offset="1"/></RadialGradientBrush></Ellipse.Fill>
-   </Ellipse>
-   <Ellipse Width="900" Height="750" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-300,-400">
-    <Ellipse.Fill><RadialGradientBrush><GradientStop Color="#1EFFCF7A" Offset="0"/><GradientStop Color="#00FFCF7A" Offset="1"/></RadialGradientBrush></Ellipse.Fill>
-   </Ellipse>
-   <Ellipse Width="1100" Height="750" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-300,-250,0">
-    <Ellipse.Fill><RadialGradientBrush><GradientStop Color="#45B57AE8" Offset="0"/><GradientStop Color="#00B57AE8" Offset="1"/></RadialGradientBrush></Ellipse.Fill>
-   </Ellipse>
-   <local:MagicLayer x:Name="Constellations" Ambient="True" />
+   <Rectangle>
+    <Rectangle.Fill><LinearGradientBrush StartPoint="0,0" EndPoint="0.8,1"><GradientStop Color="#303F285E" Offset="0"/><GradientStop Color="#805D487C" Offset="0.65"/><GradientStop Color="#A07A637D" Offset="1"/></LinearGradientBrush></Rectangle.Fill>
+   </Rectangle>
+   <Viewbox Stretch="UniformToFill">
+    <Canvas Width="1920" Height="1080">
+     <!-- Still, resolution-independent scenery; no render loop, blur or particle field. -->
+     <Path Fill="#13C5B2D8" Data="M0,890 Q290,680 620,880 Q960,1040 1230,830 Q1580,620 1920,820 L1920,1080 L0,1080Z"/>
+     <Path Fill="#16332753" Data="M0,1000 Q340,790 740,980 Q1130,1130 1500,910 Q1720,800 1920,970 L1920,1080 L0,1080Z"/>
+     <Path Fill="#FFF1CD" Data="M1640,110 A62,62 0 1 0 1718,188 A68,68 0 0 1 1640,110Z"/>
+     <Path Stroke="#37EAD9B0" StrokeThickness="1" Data="M228,166 L326,116 408,184 468,146 M1410,294 L1480,242 1512,314"/>
+     <Path Fill="#BDEAD9B0" Data="M225,161 L228,151 231,161 241,164 231,167 228,177 225,167 215,164Z M405,181 L408,171 411,181 421,184 411,187 408,197 405,187 395,184Z M1509,311 L1512,301 1515,311 1525,314 1515,317 1512,327 1509,317 1499,314Z"/>
+     <Ellipse Canvas.Left="323" Canvas.Top="113" Width="6" Height="6" Fill="#D5EAD9B0"/>
+     <Ellipse Canvas.Left="465" Canvas.Top="143" Width="5" Height="5" Fill="#90EAD9B0"/>
+     <Ellipse Canvas.Left="1407" Canvas.Top="291" Width="5" Height="5" Fill="#90EAD9B0"/>
+     <Ellipse Canvas.Left="1477" Canvas.Top="239" Width="6" Height="6" Fill="#D5EAD9B0"/>
+     <Path Fill="#68F4E4C7" Data="M660,98 a2,2 0 1 0 4,0 a2,2 0 1 0 -4,0 M1050,180 a2,2 0 1 0 4,0 a2,2 0 1 0 -4,0 M1180,82 a2,2 0 1 0 4,0 a2,2 0 1 0 -4,0 M1780,356 a2,2 0 1 0 4,0 a2,2 0 1 0 -4,0 M94,460 a2,2 0 1 0 4,0 a2,2 0 1 0 -4,0"/>
+     <Path Stroke="#45E0C4BB" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M86,1080 Q60,960 142,848 M86,1010 Q28,975 26,934 M95,960 Q149,960 178,911 M116,895 Q76,861 84,825 M1810,1080 Q1860,1000 1828,932 M1838,1024 Q1784,1003 1776,973 M1840,990 Q1880,978 1892,944"/>
+    </Canvas>
+   </Viewbox>
   </Grid>
-  <Grid Margin="36,20,36,20" x:Name="PlayRoom">
+  <Grid Margin="48,48,48,36" x:Name="PlayRoom">
    <Grid.RowDefinitions><RowDefinition/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-   <UniformGrid x:Name="Tiles" Columns="4" Rows="3" />
-   <Grid x:Name="Navigation" Grid.Row="1" Margin="12,14,12,0">
-    <Button x:Name="Previous" Content="❮" HorizontalAlignment="Left" Width="100" Click="Previous_Click" AutomationProperties.Name="Previous page" />
-    <Button x:Name="Next" Content="❯" HorizontalAlignment="Right" Width="100" Click="Next_Click" AutomationProperties.Name="Next page" />
+   <UniformGrid x:Name="Tiles" Columns="4" Rows="3" HorizontalAlignment="Center" VerticalAlignment="Center" />
+   <Grid x:Name="Navigation" Grid.Row="1" Margin="12,24,12,0" Height="64">
+    <Button x:Name="Previous" Content="‹" FontSize="36" Background="#665A4B72" HorizontalAlignment="Left" Width="88" Padding="0" Click="Previous_Click" AutomationProperties.Name="Previous page" />
+    <Button x:Name="Next" Content="›" FontSize="36" Background="#665A4B72" HorizontalAlignment="Right" Width="88" Padding="0" Click="Next_Click" AutomationProperties.Name="Next page" />
    </Grid>
   </Grid>
-  <Border x:Name="Overlay" Background="#F214233B" Visibility="Visible">
+  <Border x:Name="Overlay" Background="#F224253F" Visibility="Visible">
    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="780" Margin="40">
-    <TextBlock x:Name="OverlaySymbol" Text="★" Foreground="#FFD477" FontSize="90" HorizontalAlignment="Center" RenderTransformOrigin="0.5,0.5">
+    <TextBlock x:Name="OverlaySymbol" Text="✦" Foreground="#F4DFAC" FontSize="80" HorizontalAlignment="Center" RenderTransformOrigin="0.5,0.5">
      <TextBlock.RenderTransform><TransformGroup><ScaleTransform/><RotateTransform/></TransformGroup></TextBlock.RenderTransform>
     </TextBlock>
-    <TextBlock x:Name="OverlayTitle" Text="Even geduld…" FontSize="42" FontWeight="Bold" TextAlignment="Center" TextWrapping="Wrap" Margin="0,18,0,12" />
-    <TextBlock x:Name="OverlayMessage" Text="Je avonturen komen eraan." FontSize="24" TextAlignment="Center" TextWrapping="Wrap" />
+    <TextBlock x:Name="OverlayTitle" Text="Even geduld…" FontSize="40" FontWeight="SemiBold" TextAlignment="Center" TextWrapping="Wrap" Margin="0,24,0,14" />
+    <TextBlock x:Name="OverlayMessage" Text="Je avonturen komen eraan." Foreground="#D6CEDF" FontSize="24" TextAlignment="Center" TextWrapping="Wrap" />
     <Button x:Name="ReturnButton" Content="Terug naar mijn spelletjes" Visibility="Collapsed" Margin="0,30,0,0" Click="Return_Click" />
    </StackPanel>
   </Border>
-  <local:MagicLayer x:Name="Magic" />
  </Grid>
 </Window>

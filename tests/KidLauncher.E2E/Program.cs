@@ -197,10 +197,10 @@ namespace KidLauncher.E2E
             Thread.Sleep(400);
             Desktop.Capture(Path.Combine(output, "02-launcher-ready.png"));
             Thread.Sleep(400);
-            Desktop.Capture(Path.Combine(output, "02-launcher-twinkle.png"));
-            Check(!File.ReadAllBytes(Path.Combine(output, "02-launcher-ready.png"))
-                .SequenceEqual(File.ReadAllBytes(Path.Combine(output, "02-launcher-twinkle.png"))),
-                "starfield motion resumes when Windows animations are enabled");
+            Desktop.Capture(Path.Combine(output, "02-launcher-idle.png"));
+            Check(File.ReadAllBytes(Path.Combine(output, "02-launcher-ready.png"))
+                .SequenceEqual(File.ReadAllBytes(Path.Combine(output, "02-launcher-idle.png"))),
+                "idle launcher remains still even when Windows animations are enabled");
             using (new DesktopRecording(Path.Combine(output, "frames")))
             {
                 var tile = Find(room, ControlType.Button, Cooperative);
@@ -208,10 +208,14 @@ namespace KidLauncher.E2E
                 var resting = tile.Current.BoundingRectangle;
                 var neighborResting = neighbor.Current.BoundingRectangle;
                 var scene = room.Current.BoundingRectangle;
+                var lastTile = Find(room, ControlType.Button, Missing).Current.BoundingRectangle;
+                Check(Math.Abs((resting.Left + lastTile.Right) / 2 - (scene.Left + scene.Width / 2)) < 2 &&
+                    Math.Abs(resting.Top + resting.Height / 2 - (scene.Top + scene.Height / 2)) < 20,
+                    "a partially filled page centers its cards instead of leaving empty grid cells");
                 Desktop.MovePointer((int)(scene.Left + scene.Width * 0.2), (int)(scene.Top + scene.Height * 0.7));
                 Desktop.MovePointer((int)(scene.Left + scene.Width * 0.75), (int)(scene.Top + scene.Height * 0.7));
                 Thread.Sleep(100);
-                Desktop.Capture(Path.Combine(output, "02-pointer-dust.png"));
+                Desktop.Capture(Path.Combine(output, "02-pointer-sweep.png"));
                 Desktop.MovePointer(4, 4);
                 Thread.Sleep(1200);
                 // Sample just outside the fixed button target. The decorative
@@ -239,6 +243,18 @@ namespace KidLauncher.E2E
                     return Math.Abs(edgeBrightness("02-neighbor-hover.png") - restingEdge) < 0.02;
                 }, "tile decoration returns to its resting size after pointer leaves");
                 Play(room, launcher, Cooperative, normalEvents, false, unrelated, originalMode);
+                Desktop.MovePointer(4, 4);
+                Log("Focus after F6: " + AutomationElement.FocusedElement?.Current.Name);
+                Until(() =>
+                {
+                    Desktop.Capture(Path.Combine(output, "03-returned-to-rest.png"));
+                    return Math.Abs(edgeBrightness("03-returned-to-rest.png") - restingEdge) < 0.02;
+                }, "clicked card returns to rest after F6 and pointer departure", 3000);
+                Move(tile);
+                Thread.Sleep(400);
+                Desktop.Capture(Path.Combine(output, "03-returned-hover.png"));
+                Check(edgeBrightness("03-returned-hover.png") > restingEdge + 0.15,
+                    "card still responds to hover after returning from a game");
                 Play(room, launcher, Stubborn, stubbornEvents, true, unrelated, originalMode);
                 File.Delete(missing);
                 Click(Find(room, ControlType.Button, Missing));

@@ -42,7 +42,7 @@ namespace KidLauncher
         private DateTime lastMove = DateTime.UtcNow;
         private DateTime lastWheel = DateTime.MinValue;
         private string diagnostic = "No errors reported.";
-        private readonly string[] colors = { "#2D747D", "#97604D", "#64639C", "#466F9A", "#6C7941", "#96617B" };
+        private readonly string[] colors = { "#B9D8CC", "#EDC7B5", "#CFC5E6", "#BFD6E6", "#D3D8B6", "#E6C1D2" };
         public bool OperationActive { get { return busy || (session != null && session.IsRunning); } }
 
         public MainWindow(ConfigurationStore store, ILog log, bool smokeTest = false)
@@ -55,13 +55,8 @@ namespace KidLauncher
             this.store = store;
             this.log = log;
             this.smokeTest = smokeTest;
-            Magic.Animate = Constellations.Animate = !smokeTest;
-            Overlay.IsVisibleChanged += (s, e) =>
-            {
-                Constellations.IsEnabled = !Overlay.IsVisible && !adultOpen;
-                Magic.IsEnabled = !adultOpen && (!Overlay.IsVisible || ReturnButton.Visibility != Visibility.Visible);
-                AnimateOverlayStar();
-            };
+            PlayRoom.SizeChanged += (s, e) => SizeTiles();
+            Overlay.IsVisibleChanged += (s, e) => AnimateOverlayStar();
             SourceInitialized += (s, e) => { Topmost = true; };
             Loaded += async (s, e) =>
             {
@@ -82,7 +77,6 @@ namespace KidLauncher
             PreviewMouseMove += (s, e) =>
             {
                 lastMove = DateTime.UtcNow; Mouse.OverrideCursor = null;
-                if (!OperationActive && !adultOpen && !Overlay.IsVisible) Magic.Trail(e.GetPosition(Magic));
             };
             PreviewMouseWheel += (s, e) =>
             {
@@ -172,9 +166,8 @@ namespace KidLauncher
         {
             ApplyLanguage();
             var a = config.Appearance;
-            Tiles.Columns = Math.Max(1, Math.Min(12, a.Columns));
-            Tiles.Rows = Math.Max(1, Math.Min(12 / Tiles.Columns, a.Rows));
-            pageSize = Tiles.Columns * Tiles.Rows;
+            int columns = Math.Max(1, Math.Min(12, a.Columns));
+            pageSize = columns * Math.Max(1, Math.Min(12 / columns, a.Rows));
             games = config.Games.Where(g => g.Visible).OrderBy(g => g.SortOrder).ThenBy(g => g.Title).ToList();
             var count = Math.Max(1, (games.Count + pageSize - 1) / pageSize);
             page = Math.Max(0, Math.Min(page, count - 1));
@@ -186,14 +179,9 @@ namespace KidLauncher
             BackdropAccents.Visibility = string.IsNullOrWhiteSpace(a.BackgroundImage) ? Visibility.Visible : Visibility.Collapsed;
             Tiles.Children.Clear();
             foreach (var game in games.Skip(page * pageSize).Take(pageSize)) Tiles.Children.Add(CreateTile(game));
-            AnimateValue(Tiles, UIElement.OpacityProperty, 1, 300, MotionEnabled ? 0.86 : 1);
-            if (MotionEnabled)
-                Dispatcher.BeginInvoke(new Action(() =>
-                {
-                    if (Overlay.IsVisible || adultOpen || !IsVisible) return;
-                    foreach (var tile in Tiles.Children.OfType<Button>().Take(Tiles.Columns))
-                        Magic.Burst(tile.TranslatePoint(new Point(tile.ActualWidth / 2, 8), Magic), 16);
-                }), DispatcherPriority.Loaded);
+            Tiles.Columns = Math.Min(columns, Math.Max(1, Tiles.Children.Count));
+            Tiles.Rows = Math.Max(1, (Tiles.Children.Count + Tiles.Columns - 1) / Tiles.Columns);
+            AnimateValue(Tiles, UIElement.OpacityProperty, 1, 180, MotionEnabled ? 0.75 : 1);
             Previous.IsEnabled = page > 0;
             Next.IsEnabled = page < count - 1;
             Navigation.Visibility = count > 1 ? Visibility.Visible : Visibility.Collapsed;
@@ -202,26 +190,63 @@ namespace KidLauncher
                 var empty = new TextBlock { Text = L("★\nReady for new adventures!\nAsk a grown-up to add your games.", "★\nKlaar voor nieuwe avonturen!\nVraag een volwassene om je spelletjes toe te voegen."), FontSize = 28, TextAlignment = TextAlignment.Center, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
                 Tiles.Children.Add(empty);
             }
+            SizeTiles();
+        }
+
+        private void SizeTiles()
+        {
+            if (PlayRoom.ActualWidth <= 0 || PlayRoom.ActualHeight <= 0) return;
+            double availableHeight = Math.Max(1, PlayRoom.ActualHeight - (Navigation.Visibility == Visibility.Visible ? 88 : 0));
+            double cell = Math.Min(340, Math.Min(PlayRoom.ActualWidth / Tiles.Columns, availableHeight / Tiles.Rows / 1.15));
+            Tiles.Width = cell * Tiles.Columns;
+            Tiles.Height = cell * 1.15 * Tiles.Rows;
         }
 
         private Button CreateTile(Game game)
         {
-            var brush = (Brush)new BrushConverter().ConvertFromString(colors[Math.Abs(games.IndexOf(game) % colors.Length)]);
+            var color = (Color)ColorConverter.ConvertFromString(colors[Math.Abs(games.IndexOf(game) % colors.Length)]);
+            var cream = new SolidColorBrush(Color.FromRgb(255, 249, 237));
             var layout = new Grid();
             layout.SizeChanged += (s, e) => layout.Clip = new RectangleGeometry(new Rect(layout.RenderSize),
                 Math.Max(0, config.Appearance.CornerRadius), Math.Max(0, config.Appearance.CornerRadius));
             layout.RowDefinitions.Add(new RowDefinition());
             if (config.Appearance.ShowTitles) layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            var art = LoadArtwork(game.ArtworkPath, game.ExecutablePath);
+            // Cover art can fill its frame. A 32px executable icon cannot.
+            var art = LoadArtwork(game.ArtworkPath, null);
             if (art != null)
-                layout.Children.Add(new Image { Source = art, Stretch = Stretch.UniformToFill, ClipToBounds = true, Margin = new Thickness(3) });
+                layout.Children.Add(new Image { Source = art, Stretch = Stretch.UniformToFill, ClipToBounds = true });
             else
-                layout.Children.Add(new TextBlock { Text = "★", Foreground = Brushes.White, Opacity = 0.8, FontSize = 92, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center });
+            {
+                var cover = new Grid { Background = new LinearGradientBrush(color, Color.FromRgb(245, 239, 227), 55) };
+                cover.Children.Add(new System.Windows.Shapes.Ellipse
+                {
+                    Width = 170, Height = 170, Stroke = cream, StrokeThickness = 1, Opacity = 0.5,
+                    HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center
+                });
+                art = LoadArtwork(null, game.ExecutablePath);
+                var badge = new Border { Width = 112, Height = 112, CornerRadius = new CornerRadius(56), Background = cream,
+                    HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+                if (art != null)
+                    badge.Child = new Image { Source = art, Width = Math.Min(64, art.Width), Height = Math.Min(64, art.Height), Stretch = Stretch.Uniform };
+                else
+                    badge.Child = new System.Windows.Shapes.Path
+                    {
+                        Data = Geometry.Parse("M24,0 L29,19 48,24 29,29 24,48 19,29 0,24 19,19Z"),
+                        Fill = new SolidColorBrush(Color.FromRgb(167, 133, 100)), Width = 48, Height = 48,
+                        HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center
+                    };
+                cover.Children.Add(badge);
+                layout.Children.Add(cover);
+            }
             if (config.Appearance.ShowTitles)
             {
-                var title = new TextBlock { Text = game.Title, FontSize = 25, FontWeight = FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap, TextTrimming = TextTrimming.CharacterEllipsis, MaxHeight = 76, Margin = new Thickness(16, 10, 16, 14), HorizontalAlignment = HorizontalAlignment.Center, TextAlignment = TextAlignment.Center };
-                Grid.SetRow(title, 1);
-                layout.Children.Add(title);
+                var title = new TextBlock { Text = game.Title, Foreground = new SolidColorBrush(Color.FromRgb(72, 55, 83)),
+                    FontSize = 24, FontWeight = FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap,
+                    TextTrimming = TextTrimming.CharacterEllipsis, MaxHeight = 66,
+                    Margin = new Thickness(18, 16, 18, 18), TextAlignment = TextAlignment.Center };
+                var caption = new Border { Background = cream, MinHeight = 84, Child = title };
+                Grid.SetRow(caption, 1);
+                layout.Children.Add(caption);
             }
             var scale = new ScaleTransform();
             var lift = new TranslateTransform();
@@ -230,27 +255,24 @@ namespace KidLauncher
             transforms.Children.Add(lift);
             var visual = new Grid { IsHitTestVisible = false, RenderTransformOrigin = new Point(0.5, 0.5), RenderTransform = transforms };
             var radius = new CornerRadius(Math.Max(0, config.Appearance.CornerRadius));
+            visual.Children.Add(new Border { Background = new SolidColorBrush(Color.FromArgb(55, 21, 15, 36)), CornerRadius = radius,
+                RenderTransform = new TranslateTransform(0, 7) });
             visual.Children.Add(new Border
             {
-                Background = brush, CornerRadius = radius, Child = layout,
-                BorderThickness = new Thickness(2),
-                BorderBrush = new LinearGradientBrush(Color.FromArgb(150, 255, 222, 145), Color.FromArgb(80, 217, 172, 255), 55)
+                Background = cream, CornerRadius = radius, Child = layout, Padding = new Thickness(6),
+                CacheMode = new BitmapCache(), BorderThickness = new Thickness(1),
+                BorderBrush = new SolidColorBrush(Color.FromRgb(239, 220, 190))
             });
-            var glow = new Border
-            {
-                CornerRadius = radius, Opacity = 0,
-                Background = new LinearGradientBrush(Color.FromArgb(70, 255, 239, 183), Colors.Transparent, 70)
-            };
-            visual.Children.Add(glow);
-            var ring = new Border { CornerRadius = radius, BorderBrush = new SolidColorBrush(Color.FromRgb(255, 220, 139)), BorderThickness = new Thickness(3), Opacity = 0.18 };
+            var ring = new Border { CornerRadius = radius, BorderBrush = cream, BorderThickness = new Thickness(3), Opacity = 0 };
             visual.Children.Add(ring);
-            var sweep = new TranslateTransform();
-            var sheenBrush = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(1, 0.6), RelativeTransform = sweep };
-            sheenBrush.GradientStops.Add(new GradientStop(Colors.Transparent, 0.25));
-            sheenBrush.GradientStops.Add(new GradientStop(Color.FromArgb(110, 255, 244, 208), 0.5));
-            sheenBrush.GradientStops.Add(new GradientStop(Colors.Transparent, 0.75));
-            var sheen = new Border { CornerRadius = radius, Background = sheenBrush, Opacity = 0 };
-            visual.Children.Add(sheen);
+            var glint = new System.Windows.Shapes.Path
+            {
+                Data = Geometry.Parse("M16,0 L19,13 32,16 19,19 16,32 13,19 0,16 13,13Z M40,30 L42,37 49,39 42,41 40,48 38,41 31,39 38,37Z"),
+                Fill = cream, Width = 49, Height = 48, Opacity = 0,
+                HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top,
+                Margin = new Thickness(0, -16, -14, 0)
+            };
+            visual.Children.Add(glint);
             var button = new Button
             {
                 Content = visual, Background = Brushes.Transparent, Padding = new Thickness(0),
@@ -275,14 +297,11 @@ namespace KidLauncher
             Action twinkle = () =>
             {
                 if (!MotionEnabled || !button.IsEnabled) return;
-                for (int i = 1; i <= 3; i++)
-                    Magic.Burst(button.TranslatePoint(new Point(button.ActualWidth * i / 4, 12), Magic), 12);
-                var flash = new DoubleAnimationUsingKeyFrames { Duration = TimeSpan.FromMilliseconds(850), FillBehavior = FillBehavior.Stop };
+                var flash = new DoubleAnimationUsingKeyFrames { Duration = TimeSpan.FromMilliseconds(620), FillBehavior = FillBehavior.Stop };
                 flash.KeyFrames.Add(new LinearDoubleKeyFrame(0, KeyTime.FromPercent(0)));
-                flash.KeyFrames.Add(new EasingDoubleKeyFrame(0.8, KeyTime.FromPercent(0.22), new QuadraticEase { EasingMode = EasingMode.EaseOut }));
+                flash.KeyFrames.Add(new EasingDoubleKeyFrame(1, KeyTime.FromPercent(0.3), new QuadraticEase { EasingMode = EasingMode.EaseOut }));
                 flash.KeyFrames.Add(new EasingDoubleKeyFrame(0, KeyTime.FromPercent(1), new QuadraticEase { EasingMode = EasingMode.EaseIn }));
-                sheen.BeginAnimation(UIElement.OpacityProperty, flash);
-                AnimateValue(sweep, TranslateTransform.XProperty, 1, 850, -1);
+                glint.BeginAnimation(UIElement.OpacityProperty, flash);
             };
             bool highlighted = false;
             Action updateFeedback = () =>
@@ -290,13 +309,12 @@ namespace KidLauncher
                 bool active = button.IsEnabled && (button.IsMouseOver || button.IsKeyboardFocusWithin);
                 if (active && !highlighted) twinkle();
                 highlighted = active;
-                AnimateValue(scale, ScaleTransform.ScaleXProperty, active ? 1.03 : 1, active ? 260 : 180, spring: active);
-                AnimateValue(scale, ScaleTransform.ScaleYProperty, active ? 1.03 : 1, active ? 260 : 180, spring: active);
-                AnimateValue(lift, TranslateTransform.YProperty, active ? -3 : 0, active ? 260 : 180, spring: active);
-                AnimateValue(glow, UIElement.OpacityProperty, active ? 1 : 0, 180);
-                AnimateValue(ring, UIElement.OpacityProperty, active ? 1 : 0.18, 180);
+                AnimateValue(scale, ScaleTransform.ScaleXProperty, active ? 1.025 : 1, 180);
+                AnimateValue(scale, ScaleTransform.ScaleYProperty, active ? 1.025 : 1, 180);
+                AnimateValue(lift, TranslateTransform.YProperty, active ? -4 : 0, 180);
+                AnimateValue(ring, UIElement.OpacityProperty, active ? 1 : 0, 140);
                 Panel.SetZIndex(button, active ? 1 : 0);
-                if (!button.IsEnabled) sheen.BeginAnimation(UIElement.OpacityProperty, null);
+                if (!active) glint.BeginAnimation(UIElement.OpacityProperty, null);
             };
             button.MouseEnter += (s, e) => updateFeedback();
             button.MouseLeave += (s, e) => updateFeedback();
@@ -309,14 +327,13 @@ namespace KidLauncher
 
         private bool MotionEnabled => !smokeTest && SystemParameters.ClientAreaAnimation;
 
-        private void AnimateValue(DependencyObject target, DependencyProperty property, double value, int milliseconds, double? from = null, bool spring = false)
+        private void AnimateValue(DependencyObject target, DependencyProperty property, double value, int milliseconds, double? from = null)
         {
             double start = from ?? (double)target.GetValue(property);
             target.SetValue(property, value);
             ((IAnimatable)target).BeginAnimation(property, MotionEnabled ? new DoubleAnimation(start, value, TimeSpan.FromMilliseconds(milliseconds))
             {
-                EasingFunction = spring ? (IEasingFunction)new BackEase { Amplitude = 0.25, EasingMode = EasingMode.EaseOut }
-                    : new QuadraticEase { EasingMode = EasingMode.EaseOut },
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
                 FillBehavior = FillBehavior.Stop
             } : null);
         }
@@ -390,14 +407,6 @@ namespace KidLauncher
             ReturnButton.Visibility = canReturn ? Visibility.Visible : Visibility.Collapsed;
             Overlay.Visibility = Visibility.Visible;
             AnimateOverlayStar();
-            Magic.IsEnabled = !canReturn && !adultOpen;
-            if (!canReturn && MotionEnabled && !adultOpen)
-                Dispatcher.BeginInvoke(new Action(() =>
-                {
-                    if (!Overlay.IsVisible || ReturnButton.Visibility == Visibility.Visible || adultOpen) return;
-                    var center = OverlaySymbol.TranslatePoint(new Point(OverlaySymbol.ActualWidth / 2, OverlaySymbol.ActualHeight / 2), Magic);
-                    Magic.Burst(center, 64);
-                }), DispatcherPriority.Render);
             Mouse.OverrideCursor = null;
         }
 
@@ -535,7 +544,6 @@ namespace KidLauncher
         private async Task OpenAdultAsync()
         {
             adultOpen = true;
-            Magic.IsEnabled = Constellations.IsEnabled = false;
             Mouse.OverrideCursor = null;
             try
             {
@@ -601,8 +609,6 @@ namespace KidLauncher
             finally
             {
                 adultOpen = false; lastMove = DateTime.UtcNow;
-                Constellations.IsEnabled = !Overlay.IsVisible;
-                Magic.IsEnabled = !Overlay.IsVisible || ReturnButton.Visibility != Visibility.Visible;
             }
         }
 
