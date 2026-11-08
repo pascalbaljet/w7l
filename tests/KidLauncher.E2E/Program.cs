@@ -212,7 +212,7 @@ namespace KidLauncher.E2E
             {
                 // Compare sky regions away from the pointer. A working hover alone
                 // cannot pass the moon's click test: its star must cross open sky.
-                Func<string, System.Windows.Rect, int> changedSkyPixels = (name, bounds) =>
+                Func<string, System.Windows.Rect, int> changedPixels = (name, bounds) =>
                 {
                     var screen = System.Windows.Forms.SystemInformation.VirtualScreen;
                     using (var before = new System.Drawing.Bitmap(Path.Combine(output, "02-launcher-ready.png")))
@@ -221,7 +221,13 @@ namespace KidLauncher.E2E
                         int changed = 0;
                         for (int y = (int)bounds.Top; y < bounds.Bottom; y++)
                             for (int x = (int)bounds.Left; x < bounds.Right; x++)
-                                if (before.GetPixel(x - screen.Left, y - screen.Top) != after.GetPixel(x - screen.Left, y - screen.Top)) changed++;
+                            {
+                                var a = before.GetPixel(x - screen.Left, y - screen.Top);
+                                var b = after.GetPixel(x - screen.Left, y - screen.Top);
+                                // Allow one 8-bit RGB level of compositor rounding,
+                                // not residual motion, glows, or moved geometry.
+                                if (Math.Abs(a.R - b.R) > 1 || Math.Abs(a.G - b.G) > 1 || Math.Abs(a.B - b.B) > 1) changed++;
+                            }
                         return changed;
                     }
                 };
@@ -232,19 +238,27 @@ namespace KidLauncher.E2E
                 Desktop.Capture(Path.Combine(output, "02-shooting-star.png"));
                 var openSky = new System.Windows.Rect(moonBounds.Left - moonBounds.Width * 2.5, moonBounds.Top,
                     moonBounds.Width * 2.5, moonBounds.Height);
-                Check(changedSkyPixels("02-shooting-star.png", openSky) > 25, "clicking the moon sends a visible shooting star through open sky");
+                Check(changedPixels("02-shooting-star.png", openSky) > 25, "clicking the moon sends a visible shooting star through open sky");
                 Thread.Sleep(900);
                 Move(stars); Desktop.MovePointer(4, 4); Thread.Sleep(60);
                 Desktop.Capture(Path.Combine(output, "02-awakened-stars.png"));
-                Check(changedSkyPixels("02-awakened-stars.png", starsBounds) > 25, "hovering the constellation visibly wakes its stars");
+                Check(changedPixels("02-awakened-stars.png", starsBounds) > 25, "hovering the constellation visibly wakes its stars");
                 Click(stars); Thread.Sleep(150); Click(stars);
                 Desktop.MovePointer(4, 4); Thread.Sleep(1300);
                 Desktop.Capture(Path.Combine(output, "02-sky-settled.png"));
                 Check(moon.Current.BoundingRectangle == moonBounds && stars.Current.BoundingRectangle == starsBounds,
                     "sky interactions keep their click targets fixed");
-                Check(File.ReadAllBytes(Path.Combine(output, "02-launcher-ready.png"))
-                    .SequenceEqual(File.ReadAllBytes(Path.Combine(output, "02-sky-settled.png"))),
-                    "repeated sky interactions finish and return the whole launcher to its identical idle scene");
+                Check(changedPixels("02-sky-settled.png", room.Current.BoundingRectangle) == 0,
+                    "repeated sky interactions finish and return the whole launcher to its resting scene");
+                for (int i = 0; i < 6 && !moon.Current.HasKeyboardFocus; i++) Desktop.Key(0x09);
+                Check(moon.Current.HasKeyboardFocus, "the moon is reachable with Tab navigation");
+                Thread.Sleep(750);
+                Desktop.Capture(Path.Combine(output, "02-moon-keyboard-focus.png"));
+                Desktop.Key(0x20); Thread.Sleep(230);
+                Desktop.Capture(Path.Combine(output, "02-keyboard-shooting-star.png"));
+                Check(changedPixels("02-keyboard-shooting-star.png", openSky) > 25, "Space activates the moon's shooting star without a mouse click");
+                Desktop.Key(0x09);
+                Check(stars.Current.HasKeyboardFocus, "Tab proceeds from the moon to the constellation");
                 Move(Find(room, ControlType.Button, Cooperative)); Thread.Sleep(350);
                 Move(Find(room, ControlType.Button, Stubborn)); Thread.Sleep(350);
                 Move(Find(room, ControlType.Button, Missing)); Thread.Sleep(350);

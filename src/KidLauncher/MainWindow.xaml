@@ -5,8 +5,13 @@
  WindowState="Maximized" WindowStartupLocation="CenterScreen" Background="#14233B"
  ShowInTaskbar="False" FontFamily="Segoe UI" Foreground="White" UseLayoutRounding="True">
  <Window.Resources>
+  <Style x:Key="SkyFocus" TargetType="Control">
+   <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Control">
+    <Border Margin="4" BorderBrush="#F4DFAC" BorderThickness="2" CornerRadius="20"/>
+   </ControlTemplate></Setter.Value></Setter>
+  </Style>
   <Style x:Key="SkyToy" TargetType="Button">
-   <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+   <Setter Property="FocusVisualStyle" Value="{StaticResource SkyFocus}"/>
    <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">
     <Border Background="Transparent"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
    </ControlTemplate></Setter.Value></Setter>
