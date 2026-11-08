@@ -32,9 +32,17 @@ namespace KidLauncher.E2E
             Directory.CreateDirectory(output);
             using (report = new StreamWriter(Path.Combine(output, "results.txt")) { AutoFlush = true })
             {
+                bool? originalAnimation = null;
                 try
                 {
                     Log("Testing normal packaged applications via out-of-process Windows UI Automation and SendInput.");
+                    if (!installer)
+                    {
+                        originalAnimation = Desktop.ClientAreaAnimation;
+                        Log("Original client-area animation setting: " + originalAnimation);
+                        Desktop.ClientAreaAnimation = true;
+                        Check(Desktop.ClientAreaAnimation, "Windows animations enabled for the visual journey");
+                    }
                     if (installer) RunInstaller(Path.GetFullPath(args[1]));
                     else Run(args.Contains("--negative-control"));
                     Log("PASS: external packaged-app E2E journey completed.");
@@ -55,6 +63,7 @@ namespace KidLauncher.E2E
                         catch (Exception error) { Log("Fixture cleanup error: " + error.Message); }
                         process.Dispose();
                     }
+                    if (originalAnimation.HasValue) Desktop.ClientAreaAnimation = originalAnimation.Value;
                 }
             }
         }
@@ -174,8 +183,23 @@ namespace KidLauncher.E2E
             Ready(room, launcher);
             Check(FindNow(room, ControlType.Text, "Kies een avontuur") == null && FindNow(room, ControlType.Text, "SPELEN MAAR") == null &&
                 FindNow(room, ControlType.Button, "Vorige pagina")?.Current.IsOffscreen != false, "single-page launcher has only game tiles, without headings or page controls");
-            Desktop.MovePointer(4, 4); Thread.Sleep(250);
+            Desktop.MovePointer(4, 4);
+            Desktop.ClientAreaAnimation = false;
+            Thread.Sleep(1500);
+            Desktop.Capture(Path.Combine(output, "02-reduced-motion.png"));
+            Thread.Sleep(500);
+            Desktop.Capture(Path.Combine(output, "02-reduced-motion-later.png"));
+            Check(File.ReadAllBytes(Path.Combine(output, "02-reduced-motion.png"))
+                .SequenceEqual(File.ReadAllBytes(Path.Combine(output, "02-reduced-motion-later.png"))),
+                "reduced-motion preference leaves the launcher completely still");
+            Desktop.ClientAreaAnimation = true;
+            Thread.Sleep(400);
             Desktop.Capture(Path.Combine(output, "02-launcher-ready.png"));
+            Thread.Sleep(400);
+            Desktop.Capture(Path.Combine(output, "02-launcher-twinkle.png"));
+            Check(!File.ReadAllBytes(Path.Combine(output, "02-launcher-ready.png"))
+                .SequenceEqual(File.ReadAllBytes(Path.Combine(output, "02-launcher-twinkle.png"))),
+                "starfield motion resumes when Windows animations are enabled");
             using (new DesktopRecording(Path.Combine(output, "frames")))
             {
                 var tile = Find(room, ControlType.Button, Cooperative);

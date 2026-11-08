@@ -21,6 +21,19 @@ namespace KidLauncher.E2E
 
         public static bool Visible(IntPtr hwnd) { return IsWindowVisible(hwnd); }
 
+        public static bool ClientAreaAnimation
+        {
+            get
+            {
+                if (!GetSystemParameters(0x1042, 0, out var enabled, 0)) throw NativeError("SPI_GETCLIENTAREAANIMATION");
+                return enabled != 0;
+            }
+            set
+            {
+                if (!SetSystemParameters(0x1043, 0, new IntPtr(value ? 1 : 0), 2)) throw NativeError("SPI_SETCLIENTAREAANIMATION");
+            }
+        }
+
         public static Size CursorSize()
         {
             var cursor = new CursorInfo { Size = Marshal.SizeOf(typeof(CursorInfo)) };
@@ -231,6 +244,8 @@ namespace KidLauncher.E2E
         }
 
         [DllImport("user32.dll", SetLastError = true)] private static extern uint SendInput(uint count, Input[] inputs, int size);
+        [DllImport("user32.dll", EntryPoint = "SystemParametersInfoW", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool GetSystemParameters(uint action, uint parameter, out int value, uint flags);
+        [DllImport("user32.dll", EntryPoint = "SystemParametersInfoW", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool SetSystemParameters(uint action, uint parameter, IntPtr value, uint flags);
         [DllImport("user32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool GetCursorPos(out Point point);
         [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool IsWindowVisible(IntPtr hwnd);
         [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
