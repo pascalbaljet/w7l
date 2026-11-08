@@ -146,6 +146,7 @@ namespace KidLauncher.Core
                 Report("Display after process start: " + lastDisplay);
                 var startup = Stopwatch.StartNew();
                 long nextDisplayCheck = 500;
+                long nextDisplaySnapshot = 5000;
                 Stopwatch exitTimer = null;
                 var closeRequested = new HashSet<string>();
                 while (true)
@@ -172,6 +173,13 @@ namespace KidLauncher.Core
                                 Report("Display changed during game at " + startup.ElapsedMilliseconds + "ms: " + lastDisplay +
                                     " -> " + currentDisplay + "; configured mode=" + game.Resolution);
                                 lastDisplay = currentDisplay;
+                            }
+                            if (startup.ElapsedMilliseconds >= nextDisplaySnapshot)
+                            {
+                                Report("Display snapshot at " + startup.ElapsedMilliseconds + "ms (" +
+                                    nextDisplaySnapshot / 1000 + "s checkpoint): " + currentDisplay +
+                                    "; configured mode=" + game.Resolution);
+                                nextDisplaySnapshot = nextDisplaySnapshot == 5000 ? 15000 : long.MaxValue;
                             }
                             nextDisplayCheck = startup.ElapsedMilliseconds + 500;
                         }
