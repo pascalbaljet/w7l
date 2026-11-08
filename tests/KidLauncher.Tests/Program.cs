@@ -285,7 +285,11 @@ namespace KidLauncher.Tests
                     Thread.Sleep(300);
                     Assert(service.IsAlive(owned), "Shortcut target did not stay alive with its embedded arguments.");
                 }
-                finally { if (service.IsAlive(owned)) service.Terminate(owned); }
+                finally
+                {
+                    if (service.IsAlive(owned)) service.Terminate(owned);
+                    Assert(SpinWait.SpinUntil(() => !service.IsAlive(owned), 3000), "Shortcut target did not exit before fixture cleanup.");
+                }
             }
         }
 
