@@ -5,6 +5,12 @@
  WindowState="Maximized" WindowStartupLocation="CenterScreen" Background="#14233B"
  ShowInTaskbar="False" FontFamily="Segoe UI" Foreground="White" UseLayoutRounding="True">
  <Window.Resources>
+  <RadialGradientBrush x:Key="SoftGlow">
+   <GradientStop Color="#55FFF1CD" Offset="0"/><GradientStop Color="#1AFFF1CD" Offset="0.55"/><GradientStop Color="#00FFF1CD" Offset="1"/>
+  </RadialGradientBrush>
+  <RadialGradientBrush x:Key="FireflyGlow">
+   <GradientStop Color="#FFFFF8D2" Offset="0"/><GradientStop Color="#FFF7E58A" Offset="0.22"/><GradientStop Color="#55F7E58A" Offset="0.5"/><GradientStop Color="#00F7E58A" Offset="1"/>
+  </RadialGradientBrush>
   <Style x:Key="SkyFocus" TargetType="Control">
    <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Control">
     <Border Margin="4" BorderBrush="#F4DFAC" BorderThickness="2" CornerRadius="20"/>
@@ -38,7 +44,14 @@
    <Button x:Name="WishingStars" Style="{StaticResource SkyToy}" Width="240" Height="120" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="140,65,0,0"
     KeyboardNavigation.TabIndex="1001" AutomationProperties.Name="Stars" Click="Stars_Click">
     <Canvas Width="240" Height="120" IsHitTestVisible="False">
+     <Ellipse Canvas.Left="2" Canvas.Top="34" Width="36" Height="36" Fill="{StaticResource SoftGlow}"/>
+     <Ellipse Canvas.Left="79" Canvas.Top="3" Width="26" Height="26" Fill="{StaticResource SoftGlow}"/>
+     <Ellipse Canvas.Left="132" Canvas.Top="54" Width="36" Height="36" Fill="{StaticResource SoftGlow}"/>
+     <Ellipse Canvas.Left="192" Canvas.Top="25" Width="26" Height="26" Fill="{StaticResource SoftGlow}"/>
      <Path x:Name="StarThread" Stroke="#EAD9B0" Opacity="0.22" StrokeThickness="1" Data="M20,52 L92,16 150,72 205,38"/>
+     <!-- The path is about 226px long, so a 240px dash animated from offset 240 to 0 draws it once. -->
+     <Path x:Name="StarTrace" Stroke="#FFF1CD" Opacity="0" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+      StrokeDashArray="240 240" Data="M20,52 L92,16 150,72 205,38"/>
      <Path x:Name="StarOne" Canvas.Left="8" Canvas.Top="40" Fill="#EAD9B0" Opacity="0.8" Data="M12,0 L15,9 24,12 15,15 12,24 9,15 0,12 9,9Z" RenderTransformOrigin="0.5,0.5">
       <Path.RenderTransform><TransformGroup><ScaleTransform/><RotateTransform/></TransformGroup></Path.RenderTransform>
      </Path>
@@ -56,12 +69,69 @@
    <Button x:Name="Moon" Style="{StaticResource SkyToy}" Width="144" Height="144" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,40,60,0"
     KeyboardNavigation.TabIndex="1000" AutomationProperties.Name="Moon" Click="Moon_Click">
     <Grid Width="144" Height="144" IsHitTestVisible="False">
+     <Ellipse Width="144" Height="144" Fill="{StaticResource SoftGlow}"/>
      <Ellipse x:Name="MoonHalo" Width="132" Height="132" Stroke="#F4DFAC" StrokeThickness="1" Opacity="0"/>
-     <Path x:Name="MoonGlyph" Width="104" Height="104" Stretch="Uniform" Fill="#FFF1CD"
-      Data="M1640,110 A62,62 0 1 0 1718,188 A68,68 0 0 1 1640,110Z" RenderTransformOrigin="0.5,0.5">
-      <Path.RenderTransform><TransformGroup><ScaleTransform/><RotateTransform/></TransformGroup></Path.RenderTransform>
-     </Path>
+     <Grid x:Name="MoonBody" Width="104" Height="104" RenderTransformOrigin="0.5,0.5">
+      <Grid.RenderTransform><TransformGroup><ScaleTransform/><RotateTransform/></TransformGroup></Grid.RenderTransform>
+      <Path Stretch="Uniform" Fill="#FFF1CD" Data="M1640,110 A62,62 0 1 0 1718,188 A68,68 0 0 1 1640,110Z"/>
+      <!-- Craters stay inside the crescent: geometry bounds 1597..1718 map to 0..104. -->
+      <Canvas Opacity="0.55">
+       <Ellipse Canvas.Left="21" Canvas.Top="62" Width="14" Height="14" Fill="#EBD3A0"/>
+       <Ellipse Canvas.Left="46" Canvas.Top="83" Width="9" Height="9" Fill="#EBD3A0"/>
+       <Ellipse Canvas.Left="10" Canvas.Top="38" Width="10" Height="10" Fill="#EBD3A0"/>
+      </Canvas>
+     </Grid>
     </Grid>
+   </Button>
+   <Button x:Name="Owl" Style="{StaticResource SkyToy}" Width="110" Height="120" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="150,0,0,20"
+    KeyboardNavigation.TabIndex="1002" AutomationProperties.Name="Owl" Click="Owl_Click">
+    <Canvas Width="110" Height="120" IsHitTestVisible="False">
+     <Path Stroke="#8C7A8E" StrokeThickness="5" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M4,106 Q52,96 106,104"/>
+     <Path Fill="#9CC4A9" Data="M84,102 Q96,86 106,90 Q100,104 84,102Z M14,104 Q6,90 14,84 Q22,94 14,104Z"/>
+     <Canvas x:Name="OwlBird" Width="110" Height="120" RenderTransformOrigin="0.5,0.85">
+      <Canvas.RenderTransform><TransformGroup><ScaleTransform/><RotateTransform/><TranslateTransform/></TransformGroup></Canvas.RenderTransform>
+      <Path x:Name="OwlWingLeft" Fill="#7461A2" Data="M32,54 Q16,72 24,94 Q36,86 40,62Z" RenderTransformOrigin="0.8,0.1">
+       <Path.RenderTransform><RotateTransform/></Path.RenderTransform>
+      </Path>
+      <Path x:Name="OwlWingRight" Fill="#7461A2" Data="M78,54 Q94,72 86,94 Q74,86 70,62Z" RenderTransformOrigin="0.2,0.1">
+       <Path.RenderTransform><RotateTransform/></Path.RenderTransform>
+      </Path>
+      <Path Fill="#9884C2" Data="M34,42 L31,22 L47,34Z M76,42 L79,22 L63,34Z M55,30 C78,30 84,52 82,72 C80,92 68,101 55,101 C42,101 30,92 28,72 C26,52 32,30 55,30Z"/>
+      <Ellipse Canvas.Left="40" Canvas.Top="63" Width="30" Height="33" Fill="#E9DFF3"/>
+      <Path Stroke="#C6B5DF" StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M46,73 Q49,76 52,73 M58,73 Q61,76 64,73 M52,82 Q55,85 58,82"/>
+      <Ellipse Canvas.Left="33" Canvas.Top="38" Width="23" Height="23" Fill="#F7EFDF"/>
+      <Ellipse Canvas.Left="54" Canvas.Top="38" Width="23" Height="23" Fill="#F7EFDF"/>
+      <Path x:Name="OwlSleep" Stroke="#4A3A5C" StrokeThickness="2.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M39,50 Q44.5,55 50,50 M60,50 Q65.5,55 71,50"/>
+      <Canvas x:Name="OwlEyes" Opacity="0">
+       <Ellipse Canvas.Left="38.5" Canvas.Top="43.5" Width="12" Height="12" Fill="#4A3A5C"/>
+       <Ellipse Canvas.Left="59.5" Canvas.Top="43.5" Width="12" Height="12" Fill="#4A3A5C"/>
+       <Ellipse Canvas.Left="41.5" Canvas.Top="45.5" Width="4" Height="4" Fill="White"/>
+       <Ellipse Canvas.Left="62.5" Canvas.Top="45.5" Width="4" Height="4" Fill="White"/>
+      </Canvas>
+      <Path Fill="#E8B879" Data="M51.5,57 L58.5,57 L55,63Z"/>
+      <Path Stroke="#E8B879" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M46,99 V104 M50,99 V104 M60,99 V104 M64,99 V104"/>
+     </Canvas>
+     <Canvas x:Name="OwlDreams" Opacity="0.75">
+      <TextBlock Canvas.Left="80" Canvas.Top="20" Text="z" FontSize="15" FontWeight="SemiBold" Foreground="#E3D8F0"/>
+      <TextBlock Canvas.Left="91" Canvas.Top="2" Text="z" FontSize="20" FontWeight="SemiBold" Foreground="#E3D8F0"/>
+     </Canvas>
+    </Canvas>
+   </Button>
+   <Button x:Name="Fireflies" Style="{StaticResource SkyToy}" Width="150" Height="100" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,150,20"
+    KeyboardNavigation.TabIndex="1003" AutomationProperties.Name="Fireflies" Click="Fireflies_Click">
+    <Canvas Width="150" Height="100" IsHitTestVisible="False">
+     <Path Stroke="#86AE95" StrokeThickness="2.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Opacity="0.9"
+      Data="M20,100 Q22,80 14,66 M28,100 Q32,76 40,64 M60,100 Q58,82 66,72 M92,100 Q96,78 88,62 M104,100 Q108,84 120,76 M132,100 Q130,86 138,74"/>
+     <Ellipse Canvas.Left="9" Canvas.Top="60" Width="10" Height="10" Fill="#F2C6D6"/>
+     <Ellipse Canvas.Left="83" Canvas.Top="56" Width="10" Height="10" Fill="#F4DFAC"/>
+     <Ellipse Canvas.Left="133" Canvas.Top="68" Width="9" Height="9" Fill="#CFC5E6"/>
+     <Ellipse x:Name="Firefly1" Canvas.Left="27" Canvas.Top="38" Width="16" Height="16" Fill="{StaticResource FireflyGlow}" Opacity="0.55"><Ellipse.RenderTransform><TranslateTransform/></Ellipse.RenderTransform></Ellipse>
+     <Ellipse x:Name="Firefly2" Canvas.Left="66" Canvas.Top="24" Width="16" Height="16" Fill="{StaticResource FireflyGlow}" Opacity="0.55"><Ellipse.RenderTransform><TranslateTransform/></Ellipse.RenderTransform></Ellipse>
+     <Ellipse x:Name="Firefly3" Canvas.Left="110" Canvas.Top="40" Width="16" Height="16" Fill="{StaticResource FireflyGlow}" Opacity="0.55"><Ellipse.RenderTransform><TranslateTransform/></Ellipse.RenderTransform></Ellipse>
+     <Ellipse x:Name="Firefly4" Canvas.Left="46" Canvas.Top="62" Width="14" Height="14" Fill="{StaticResource FireflyGlow}" Opacity="0"><Ellipse.RenderTransform><TranslateTransform/></Ellipse.RenderTransform></Ellipse>
+     <Ellipse x:Name="Firefly5" Canvas.Left="94" Canvas.Top="60" Width="14" Height="14" Fill="{StaticResource FireflyGlow}" Opacity="0"><Ellipse.RenderTransform><TranslateTransform/></Ellipse.RenderTransform></Ellipse>
+     <Ellipse x:Name="Firefly6" Canvas.Left="124" Canvas.Top="58" Width="14" Height="14" Fill="{StaticResource FireflyGlow}" Opacity="0"><Ellipse.RenderTransform><TranslateTransform/></Ellipse.RenderTransform></Ellipse>
+    </Canvas>
    </Button>
    <Canvas IsHitTestVisible="False">
     <Canvas x:Name="ShootingStar" Width="160" Height="40" Opacity="0">

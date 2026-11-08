@@ -185,6 +185,27 @@ namespace KidLauncher.E2E
                 FindNow(room, ControlType.Button, "Vorige pagina")?.Current.IsOffscreen != false, "single-page launcher has no headings or page controls");
             var moon = Find(room, ControlType.Button, negativeControl ? "Make a shooting star" : "Maak een vallende ster");
             var stars = Find(room, ControlType.Button, negativeControl ? "Wake the stars" : "Maak de sterren wakker");
+            var owl = Find(room, ControlType.Button, negativeControl ? "Wake the owl" : "Maak de uil wakker");
+            var fireflies = Find(room, ControlType.Button, negativeControl ? "Wake the fireflies" : "Laat de vuurvliegjes dansen");
+            // Count pixels that differ by more than one 8-bit RGB level. The allowance covers
+            // compositor rounding, not residual motion, glows, or moved geometry.
+            Func<string, string, System.Windows.Rect, int> changedPixels = (baseline, name, bounds) =>
+            {
+                var screen = System.Windows.Forms.SystemInformation.VirtualScreen;
+                using (var before = new System.Drawing.Bitmap(Path.Combine(output, baseline)))
+                using (var after = new System.Drawing.Bitmap(Path.Combine(output, name)))
+                {
+                    int changed = 0;
+                    for (int y = (int)Math.Max(bounds.Top, screen.Top); y < Math.Min(bounds.Bottom, screen.Bottom); y++)
+                        for (int x = (int)Math.Max(bounds.Left, screen.Left); x < Math.Min(bounds.Right, screen.Right); x++)
+                        {
+                            var a = before.GetPixel(x - screen.Left, y - screen.Top);
+                            var b = after.GetPixel(x - screen.Left, y - screen.Top);
+                            if (Math.Abs(a.R - b.R) > 1 || Math.Abs(a.G - b.G) > 1 || Math.Abs(a.B - b.B) > 1) changed++;
+                        }
+                    return changed;
+                }
+            };
             Desktop.MovePointer(4, 4);
             Desktop.ClientAreaAnimation = false;
             Check(!Desktop.ClientAreaAnimation, "Windows reports that client-area animations are disabled");
@@ -195,11 +216,10 @@ namespace KidLauncher.E2E
             Check(File.ReadAllBytes(Path.Combine(output, "02-reduced-motion.png"))
                 .SequenceEqual(File.ReadAllBytes(Path.Combine(output, "02-reduced-motion-later.png"))),
                 "reduced-motion preference leaves the launcher completely still");
-            Click(moon); Click(stars); Desktop.MovePointer(4, 4);
+            Click(moon); Click(stars); Click(owl); Click(fireflies); Desktop.MovePointer(4, 4); Thread.Sleep(300);
             Desktop.Capture(Path.Combine(output, "02-reduced-motion-interactions.png"));
-            Check(File.ReadAllBytes(Path.Combine(output, "02-reduced-motion.png"))
-                .SequenceEqual(File.ReadAllBytes(Path.Combine(output, "02-reduced-motion-interactions.png"))),
-                "hovering and clicking sky toys does not animate with reduced motion enabled");
+            Check(changedPixels("02-reduced-motion.png", "02-reduced-motion-interactions.png", room.Current.BoundingRectangle) == 0,
+                "hovering and clicking sky and garden toys does not animate with reduced motion enabled");
             Desktop.ClientAreaAnimation = true;
             Thread.Sleep(400);
             Desktop.Capture(Path.Combine(output, "02-launcher-ready.png"));
@@ -210,55 +230,49 @@ namespace KidLauncher.E2E
                 "idle launcher remains still even when Windows animations are enabled");
             using (new DesktopRecording(Path.Combine(output, "motion-frames"), 30))
             {
-                // Compare sky regions away from the pointer. A working hover alone
+                // Compare regions away from the pointer. A working hover alone
                 // cannot pass the moon's click test: its star must cross open sky.
-                Func<string, System.Windows.Rect, int> changedPixels = (name, bounds) =>
-                {
-                    var screen = System.Windows.Forms.SystemInformation.VirtualScreen;
-                    using (var before = new System.Drawing.Bitmap(Path.Combine(output, "02-launcher-ready.png")))
-                    using (var after = new System.Drawing.Bitmap(Path.Combine(output, name)))
-                    {
-                        int changed = 0;
-                        for (int y = (int)bounds.Top; y < bounds.Bottom; y++)
-                            for (int x = (int)bounds.Left; x < bounds.Right; x++)
-                            {
-                                var a = before.GetPixel(x - screen.Left, y - screen.Top);
-                                var b = after.GetPixel(x - screen.Left, y - screen.Top);
-                                // Allow one 8-bit RGB level of compositor rounding,
-                                // not residual motion, glows, or moved geometry.
-                                if (Math.Abs(a.R - b.R) > 1 || Math.Abs(a.G - b.G) > 1 || Math.Abs(a.B - b.B) > 1) changed++;
-                            }
-                        return changed;
-                    }
-                };
+                Func<string, System.Windows.Rect, int> changedFromReady = (name, bounds) => changedPixels("02-launcher-ready.png", name, bounds);
                 var moonBounds = moon.Current.BoundingRectangle;
                 var starsBounds = stars.Current.BoundingRectangle;
+                var owlBounds = owl.Current.BoundingRectangle;
+                var firefliesBounds = fireflies.Current.BoundingRectangle;
                 Move(moon); Thread.Sleep(350);
                 Click(moon); Desktop.MovePointer(4, 4); Thread.Sleep(60);
                 Desktop.Capture(Path.Combine(output, "02-shooting-star.png"));
                 var openSky = new System.Windows.Rect(moonBounds.Left - moonBounds.Width * 2.5, moonBounds.Top,
                     moonBounds.Width * 2.5, moonBounds.Height);
-                Check(changedPixels("02-shooting-star.png", openSky) > 25, "clicking the moon sends a visible shooting star through open sky");
+                Check(changedFromReady("02-shooting-star.png", openSky) > 25, "clicking the moon sends a visible shooting star through open sky");
                 Thread.Sleep(900);
                 Move(stars); Desktop.MovePointer(4, 4); Thread.Sleep(60);
                 Desktop.Capture(Path.Combine(output, "02-awakened-stars.png"));
-                Check(changedPixels("02-awakened-stars.png", starsBounds) > 25, "hovering the constellation visibly wakes its stars");
+                Check(changedFromReady("02-awakened-stars.png", starsBounds) > 25, "hovering the constellation visibly wakes its stars");
+                Thread.Sleep(900);
+                Move(owl); Thread.Sleep(300); Click(owl); Thread.Sleep(250);
+                Desktop.Capture(Path.Combine(output, "02-owl-awake.png"));
+                Check(changedFromReady("02-owl-awake.png", owlBounds) > 25, "clicking the owl wakes it");
+                Move(fireflies); Thread.Sleep(300); Click(fireflies); Thread.Sleep(500);
+                Desktop.Capture(Path.Combine(output, "02-fireflies.png"));
+                Check(changedFromReady("02-fireflies.png", firefliesBounds) > 25, "clicking the fireflies sends them dancing");
                 Click(stars); Thread.Sleep(150); Click(stars);
-                Desktop.MovePointer(4, 4); Thread.Sleep(1300);
+                Desktop.MovePointer(4, 4); Thread.Sleep(2200);
                 Desktop.Capture(Path.Combine(output, "02-sky-settled.png"));
-                Check(moon.Current.BoundingRectangle == moonBounds && stars.Current.BoundingRectangle == starsBounds,
-                    "sky interactions keep their click targets fixed");
-                Check(changedPixels("02-sky-settled.png", room.Current.BoundingRectangle) == 0,
-                    "repeated sky interactions finish and return the whole launcher to its resting scene");
-                for (int i = 0; i < 6 && !moon.Current.HasKeyboardFocus; i++) Desktop.Key(0x09);
+                Check(moon.Current.BoundingRectangle == moonBounds && stars.Current.BoundingRectangle == starsBounds &&
+                    owl.Current.BoundingRectangle == owlBounds && fireflies.Current.BoundingRectangle == firefliesBounds,
+                    "sky and garden interactions keep their click targets fixed");
+                Check(changedFromReady("02-sky-settled.png", room.Current.BoundingRectangle) == 0,
+                    "repeated interactions finish and return the whole launcher to its resting scene");
+                for (int i = 0; i < 10 && !moon.Current.HasKeyboardFocus; i++) Desktop.Key(0x09);
                 Check(moon.Current.HasKeyboardFocus, "the moon is reachable with Tab navigation");
                 Thread.Sleep(750);
                 Desktop.Capture(Path.Combine(output, "02-moon-keyboard-focus.png"));
                 Desktop.Key(0x20); Thread.Sleep(230);
                 Desktop.Capture(Path.Combine(output, "02-keyboard-shooting-star.png"));
-                Check(changedPixels("02-keyboard-shooting-star.png", openSky) > 25, "Space activates the moon's shooting star without a mouse click");
+                Check(changedFromReady("02-keyboard-shooting-star.png", openSky) > 25, "Space activates the moon's shooting star without a mouse click");
                 Desktop.Key(0x09);
                 Check(stars.Current.HasKeyboardFocus, "Tab proceeds from the moon to the constellation");
+                Desktop.Key(0x09);
+                Check(owl.Current.HasKeyboardFocus, "Tab proceeds from the constellation to the owl");
                 Move(Find(room, ControlType.Button, Cooperative)); Thread.Sleep(350);
                 Move(Find(room, ControlType.Button, Stubborn)); Thread.Sleep(350);
                 Move(Find(room, ControlType.Button, Missing)); Thread.Sleep(350);

@@ -14,7 +14,7 @@ The children's launcher defaults to Dutch. To select English, open **General →
 
 The game grid centers the available cards against a still, moonlit backdrop, without headings or page text. Cards have cream frames and a brief lift and glint on hover or keyboard focus. Executable icons stay at their native size instead of stretching across a card. A configured wallpaper replaces the backdrop decorations. Motion follows the Windows animation preference, and the launcher stays still while idle. Page arrows appear only when needed.
 
-Hover over the moon to make it nod. Click it to send a shooting star across the sky. Hover over or click the constellation to wake its stars in sequence. These effects finish within about a second and stop when a game starts or the adult menu opens. The moon and constellation also accept keyboard activation after the game tiles in Tab order. Reduced motion disables these effects.
+Hover over the moon to make it nod. Click it to send a shooting star across the sky. Hover over or click the constellation to wake its stars and draw the line between them. A sleepy owl in the lower-left corner peeks when you point at it and hops and flaps when you click it. Fireflies in the lower-right grass drift up when you point at them, and more join them on a click. The owl and fireflies hide when cards or page arrows would cover them. These effects finish within about two seconds and stop when a game starts or the adult menu opens. All of them accept keyboard activation after the game tiles in Tab order. Reduced motion disables these effects.
 
 Press **Ctrl+Alt+S**, then choose **Exit launcher to Windows** to close it. If a PIN is configured, enter it first. Without a PIN, the adult menu opens directly.
 

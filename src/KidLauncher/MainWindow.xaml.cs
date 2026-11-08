@@ -61,13 +61,18 @@ namespace KidLauncher
             Moon.MouseEnter += (s, e) =>
             {
                 if (!CanPlayWithScenery) return;
-                PulseScenery(MoonGlyph, 1.08, -8);
+                PulseScenery(MoonBody, 1.08, -8);
                 AnimateValue(MoonHalo, UIElement.OpacityProperty, 0.6, 180);
             };
             Moon.MouseLeave += (s, e) => AnimateValue(MoonHalo, UIElement.OpacityProperty, 0, 180);
-            Moon.GotKeyboardFocus += (s, e) => { if (CanPlayWithScenery) PulseScenery(MoonGlyph, 1.08, -8); };
+            Moon.GotKeyboardFocus += (s, e) => { if (CanPlayWithScenery) PulseScenery(MoonBody, 1.08, -8); };
             WishingStars.MouseEnter += (s, e) => WakeStars();
             WishingStars.GotKeyboardFocus += (s, e) => WakeStars();
+            Owl.MouseEnter += (s, e) => WakeOwl(false);
+            Owl.GotKeyboardFocus += (s, e) => WakeOwl(false);
+            Fireflies.MouseEnter += (s, e) => StirFireflies(false);
+            Fireflies.GotKeyboardFocus += (s, e) => StirFireflies(false);
+            LayoutUpdated += (s, e) => PlaceGroundToys();
             SystemParameters.StaticPropertyChanged += MotionSettingsChanged;
             SourceInitialized += (s, e) => { Topmost = true; };
             Loaded += async (s, e) =>
@@ -149,6 +154,8 @@ namespace KidLauncher
             AutomationProperties.SetName(Next, L("Next page", "Volgende pagina"));
             AutomationProperties.SetName(Moon, L("Make a shooting star", "Maak een vallende ster"));
             AutomationProperties.SetName(WishingStars, L("Wake the stars", "Maak de sterren wakker"));
+            AutomationProperties.SetName(Owl, L("Wake the owl", "Maak de uil wakker"));
+            AutomationProperties.SetName(Fireflies, L("Wake the fireflies", "Laat de vuurvliegjes dansen"));
         }
 
         private void CreateSession()
@@ -349,7 +356,7 @@ namespace KidLauncher
         private void Moon_Click(object sender, RoutedEventArgs e)
         {
             if (!CanPlayWithScenery) return;
-            PulseScenery(MoonGlyph, 1.08, -8);
+            PulseScenery(MoonBody, 1.1, -10);
             var origin = Moon.TranslatePoint(new Point(12, 12), BackdropAccents);
             var travel = (TranslateTransform)ShootingStar.RenderTransform;
             AnimateValue(travel, TranslateTransform.XProperty, Math.Max(12, origin.X - 340), 900, origin.X);
@@ -373,46 +380,135 @@ namespace KidLauncher
                 PulseScenery(star, 1.55, 18, delay);
                 delay += 120;
             }
-            var glow = new DoubleAnimation(0.22, 0.75, TimeSpan.FromMilliseconds(400))
+            Swing(StarThread, UIElement.OpacityProperty, 0.6, 900);
+            Hold(StarTrace, UIElement.OpacityProperty, 0.85, 1300);
+            StarTrace.BeginAnimation(System.Windows.Shapes.Shape.StrokeDashOffsetProperty, new DoubleAnimation(240, 0, TimeSpan.FromMilliseconds(760))
             {
-                AutoReverse = true, FillBehavior = FillBehavior.Stop,
-                EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut }
-            };
-            StarThread.BeginAnimation(UIElement.OpacityProperty, glow);
+                FillBehavior = FillBehavior.Stop, EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+            });
         }
+
+        private void Owl_Click(object sender, RoutedEventArgs e) { WakeOwl(true); }
+
+        private void WakeOwl(bool hop)
+        {
+            if (!CanPlayWithScenery) return;
+            // Hover peeks; a click makes the owl hop and flap. Either way it falls back asleep.
+            int awake = hop ? 1900 : 1300;
+            Hold(OwlEyes, UIElement.OpacityProperty, 1, awake);
+            Hold(OwlSleep, UIElement.OpacityProperty, 0, awake);
+            Hold(OwlDreams, UIElement.OpacityProperty, 0, awake);
+            var body = ((TransformGroup)OwlBird.RenderTransform).Children;
+            Swing(body[1], RotateTransform.AngleProperty, hop ? -7 : 6, hop ? 1000 : 800);
+            if (!hop) return;
+            Swing(body[2], TranslateTransform.YProperty, -16, 560, peakAt: 0.45);
+            Swing(body[0], ScaleTransform.ScaleYProperty, 1.05, 560, peakAt: 0.45);
+            foreach (var wing in new[] { OwlWingLeft, OwlWingRight })
+            {
+                var flap = new DoubleAnimationUsingKeyFrames { Duration = TimeSpan.FromMilliseconds(640), FillBehavior = FillBehavior.Stop };
+                double angle = wing == OwlWingLeft ? 32 : -32;
+                foreach (var step in new[] { 0.25, 0.5, 0.75, 1.0 })
+                    flap.KeyFrames.Add(new EasingDoubleKeyFrame(step == 0.5 || step == 1.0 ? 0 : angle, KeyTime.FromPercent(step),
+                        new SineEase { EasingMode = EasingMode.EaseInOut }));
+                wing.RenderTransform.BeginAnimation(RotateTransform.AngleProperty, flap);
+            }
+        }
+
+        private void Fireflies_Click(object sender, RoutedEventArgs e) { StirFireflies(true); }
+
+        private void StirFireflies(bool burst)
+        {
+            if (!CanPlayWithScenery) return;
+            // Hover wakes the three resting fireflies. A click also lifts three hidden ones out of the grass.
+            var flies = new[] { Firefly1, Firefly2, Firefly3, Firefly4, Firefly5, Firefly6 };
+            double[] dx = { -16, 12, 18, -20, 8, 22 }, dy = { -20, -28, -18, -48, -54, -42 };
+            double reach = burst ? 1 : 0.45;
+            int duration = burst ? 1800 : 1200;
+            for (int i = 0; i < (burst ? flies.Length : 3); i++)
+            {
+                int delay = i * 90;
+                var drift = flies[i].RenderTransform;
+                // Different peak times for X and Y give each firefly a curved loop instead of a straight line.
+                Swing(drift, TranslateTransform.XProperty, dx[i] * reach, duration, delay, 0.3);
+                Swing(drift, TranslateTransform.YProperty, dy[i] * reach, duration, delay, 0.55);
+                Hold(flies[i], UIElement.OpacityProperty, 1, duration, delay);
+            }
+        }
+
+        private void PlaceGroundToys()
+        {
+            // The owl and fireflies sit near the bottom corners. Hide either one rather than let it
+            // peek out from under a card or page arrow on small screens or full pages.
+            if (!BackdropAccents.IsVisible || Tiles.ActualWidth <= 0) return;
+            var blocked = new List<Rect> { Bounds(Tiles) };
+            if (Navigation.IsVisible) { blocked.Add(Bounds(Previous)); blocked.Add(Bounds(Next)); }
+            foreach (var toy in new FrameworkElement[] { Owl, Fireflies })
+            {
+                var area = Bounds(toy);
+                area.Inflate(12, 12);
+                var visibility = blocked.Any(r => r.IntersectsWith(area)) ? Visibility.Hidden : Visibility.Visible;
+                if (toy.Visibility != visibility) toy.Visibility = visibility;
+            }
+        }
+
+        private Rect Bounds(FrameworkElement element) { return new Rect(element.TranslatePoint(new Point(), Backdrop), element.RenderSize); }
 
         private void PulseScenery(FrameworkElement glyph, double size, double angle, int delay = 0)
         {
-            var transforms = (TransformGroup)glyph.RenderTransform;
-            var scale = (ScaleTransform)transforms.Children[0];
-            var rotation = (RotateTransform)transforms.Children[1];
-            var pulse = new DoubleAnimation(1, size, TimeSpan.FromMilliseconds(340))
+            var transforms = ((TransformGroup)glyph.RenderTransform).Children;
+            Swing(transforms[0], ScaleTransform.ScaleXProperty, size, 680, delay);
+            Swing(transforms[0], ScaleTransform.ScaleYProperty, size, 680, delay);
+            Swing(transforms[1], RotateTransform.AngleProperty, angle, 680, delay);
+        }
+
+        // Out-and-back motion. With no keyframe at time zero, a retrigger starts from the value
+        // currently on screen, so repeated hovers and clicks never jump.
+        private static void Swing(IAnimatable target, DependencyProperty property, double peak, int milliseconds, int delay = 0, double peakAt = 0.4)
+        {
+            var swing = new DoubleAnimationUsingKeyFrames
             {
-                BeginTime = TimeSpan.FromMilliseconds(delay), AutoReverse = true, FillBehavior = FillBehavior.Stop,
-                EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut }
+                Duration = TimeSpan.FromMilliseconds(milliseconds), BeginTime = TimeSpan.FromMilliseconds(delay), FillBehavior = FillBehavior.Stop
             };
-            scale.BeginAnimation(ScaleTransform.ScaleXProperty, pulse);
-            scale.BeginAnimation(ScaleTransform.ScaleYProperty, pulse);
-            var nod = pulse.Clone(); nod.From = 0; nod.To = angle;
-            rotation.BeginAnimation(RotateTransform.AngleProperty, nod);
+            swing.KeyFrames.Add(new EasingDoubleKeyFrame(peak, KeyTime.FromPercent(peakAt), new QuadraticEase { EasingMode = EasingMode.EaseOut }));
+            swing.KeyFrames.Add(new EasingDoubleKeyFrame((double)target.GetAnimationBaseValue(property), KeyTime.FromPercent(1),
+                new SineEase { EasingMode = EasingMode.EaseInOut }));
+            target.BeginAnimation(property, swing);
+        }
+
+        // Fade to a value, stay there, then fade back to rest.
+        private static void Hold(IAnimatable target, DependencyProperty property, double value, int milliseconds, int delay = 0)
+        {
+            var hold = new DoubleAnimationUsingKeyFrames
+            {
+                Duration = TimeSpan.FromMilliseconds(milliseconds), BeginTime = TimeSpan.FromMilliseconds(delay), FillBehavior = FillBehavior.Stop
+            };
+            hold.KeyFrames.Add(new EasingDoubleKeyFrame(value, KeyTime.FromPercent(0.15), new QuadraticEase { EasingMode = EasingMode.EaseOut }));
+            hold.KeyFrames.Add(new LinearDoubleKeyFrame(value, KeyTime.FromPercent(0.75)));
+            hold.KeyFrames.Add(new EasingDoubleKeyFrame((double)target.GetAnimationBaseValue(property), KeyTime.FromPercent(1),
+                new SineEase { EasingMode = EasingMode.EaseInOut }));
+            target.BeginAnimation(property, hold);
         }
 
         private void StopScenery()
         {
-            foreach (var glyph in new[] { MoonGlyph, StarOne, StarTwo, StarThree, StarFour })
-            {
-                var transforms = (TransformGroup)glyph.RenderTransform;
-                var scale = (ScaleTransform)transforms.Children[0];
-                scale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-                scale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
-                ((RotateTransform)transforms.Children[1]).BeginAnimation(RotateTransform.AngleProperty, null);
-            }
+            foreach (var glyph in new FrameworkElement[] { MoonBody, StarOne, StarTwo, StarThree, StarFour, OwlBird })
+                foreach (var part in ((TransformGroup)glyph.RenderTransform).Children)
+                    foreach (var property in new[] { ScaleTransform.ScaleXProperty, ScaleTransform.ScaleYProperty, RotateTransform.AngleProperty,
+                        TranslateTransform.XProperty, TranslateTransform.YProperty })
+                        if (property.OwnerType.IsInstanceOfType(part)) part.BeginAnimation(property, null);
             MoonHalo.BeginAnimation(UIElement.OpacityProperty, null); MoonHalo.Opacity = 0;
-            StarThread.BeginAnimation(UIElement.OpacityProperty, null);
-            ShootingStar.BeginAnimation(UIElement.OpacityProperty, null);
-            var travel = (TranslateTransform)ShootingStar.RenderTransform;
-            travel.BeginAnimation(TranslateTransform.XProperty, null);
-            travel.BeginAnimation(TranslateTransform.YProperty, null);
+            foreach (var element in new UIElement[] { StarThread, StarTrace, ShootingStar, OwlEyes, OwlSleep, OwlDreams,
+                Firefly1, Firefly2, Firefly3, Firefly4, Firefly5, Firefly6 })
+                element.BeginAnimation(UIElement.OpacityProperty, null);
+            StarTrace.BeginAnimation(System.Windows.Shapes.Shape.StrokeDashOffsetProperty, null);
+            OwlWingLeft.RenderTransform.BeginAnimation(RotateTransform.AngleProperty, null);
+            OwlWingRight.RenderTransform.BeginAnimation(RotateTransform.AngleProperty, null);
+            foreach (var drift in new[] { ShootingStar.RenderTransform, Firefly1.RenderTransform, Firefly2.RenderTransform, Firefly3.RenderTransform,
+                Firefly4.RenderTransform, Firefly5.RenderTransform, Firefly6.RenderTransform })
+            {
+                drift.BeginAnimation(TranslateTransform.XProperty, null);
+                drift.BeginAnimation(TranslateTransform.YProperty, null);
+            }
         }
 
         private void MotionSettingsChanged(object sender, PropertyChangedEventArgs e)
