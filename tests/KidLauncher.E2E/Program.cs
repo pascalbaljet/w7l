@@ -26,15 +26,17 @@ namespace KidLauncher.E2E
         {
             if (args.Length >= 2 && args[0] == "--test-game")
                 return TestGame.Run(args[1], args.Contains("--ignore-close"));
-            if (args.Length < 2 || args.Length > 3) { Console.Error.WriteLine("Usage: KidLauncher.E2E.exe <extracted portable directory> <evidence directory> [--negative-control]"); return 2; }
-            app = Path.GetFullPath(args[0]); output = Path.GetFullPath(args[1]);
+            bool installer = args.Length == 4 && args[0] == "--installer";
+            if (!installer && (args.Length < 2 || args.Length > 3)) { Console.Error.WriteLine("Usage: KidLauncher.E2E.exe <app directory> <evidence directory> [--negative-control], or --installer <setup.exe> <destination> <evidence directory>"); return 2; }
+            app = Path.GetFullPath(args[installer ? 2 : 0]); output = Path.GetFullPath(args[installer ? 3 : 1]);
             Directory.CreateDirectory(output);
             using (report = new StreamWriter(Path.Combine(output, "results.txt")) { AutoFlush = true })
             {
                 try
                 {
                     Log("Testing normal packaged applications via out-of-process Windows UI Automation and SendInput.");
-                    Run(args.Contains("--negative-control"));
+                    if (installer) RunInstaller(Path.GetFullPath(args[1]));
+                    else Run(args.Contains("--negative-control"));
                     Log("PASS: external packaged-app E2E journey completed.");
                     return 0;
                 }
@@ -54,6 +56,27 @@ namespace KidLauncher.E2E
                         process.Dispose();
                     }
                 }
+            }
+        }
+
+        static void RunInstaller(string executable)
+        {
+            var process = Process.Start(new ProcessStartInfo(executable, "--install-dir " + Quote(app)) { UseShellExecute = true });
+            owned.Add(process);
+            var window = Window(process, "KidLauncher Setup");
+            using (new DesktopRecording(Path.Combine(output, "frames")))
+            {
+                Desktop.Capture(Path.Combine(output, "installer-ready.png"));
+                Move(Find(window, ControlType.Button, "Close"));
+                Click(Find(window, ControlType.Button, "Install / Update"));
+                Until(() => window.FindAll(TreeScope.Descendants, new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Text))
+                    .Cast<AutomationElement>().Any(element => element.Current.Name.StartsWith("Installation complete.", StringComparison.Ordinal)),
+                    "installer reports success");
+                Check(File.Exists(Path.Combine(app, "KidLauncher.exe")), "installer writes the launcher");
+                Desktop.Capture(Path.Combine(output, "installer-complete.png"));
+                Click(Find(window, ControlType.Button, "Close"));
+                Until(() => process.HasExited, "installer closes");
+                Check(process.ExitCode == 0, "installer exits successfully");
             }
         }
 
@@ -89,6 +112,21 @@ namespace KidLauncher.E2E
             Invoke(settings, "Save configuration");
             Until(() => File.Exists(Path.Combine(app, "games.json")) && Games().Length == 3 &&
                 !string.IsNullOrEmpty((string)((Dictionary<string, object>)Configuration()["Controls"])["PinHash"]), "configuration saved by the GUI");
+            Check((string)Configuration()["Language"] == "nl", "launcher defaults to Dutch");
+            ((SelectionItemPattern)Find(settings, ControlType.TabItem, "General").GetCurrentPattern(SelectionItemPattern.Pattern)).Select();
+            var language = Find(settings, ControlType.ComboBox, "Launcher language");
+            var languages = (ExpandCollapsePattern)language.GetCurrentPattern(ExpandCollapsePattern.Pattern);
+            languages.Expand();
+            ((SelectionItemPattern)Find(language, ControlType.ListItem, "English").GetCurrentPattern(SelectionItemPattern.Pattern)).Select();
+            languages.Collapse(); Invoke(settings, "Save configuration");
+            Until(() => (string)Configuration()["Language"] == "en", "GUI persists English language selection");
+            if (!negativeControl)
+            {
+                languages.Expand();
+                ((SelectionItemPattern)Find(language, ControlType.ListItem, "Nederlands").GetCurrentPattern(SelectionItemPattern.Pattern)).Select();
+                languages.Collapse(); Invoke(settings, "Save configuration");
+                Until(() => (string)Configuration()["Language"] == "nl", "GUI persists Dutch language selection");
+            }
             var games = Games();
             Check((string)games[0]["Title"] == Cooperative && (string)games[1]["Title"] == Stubborn &&
                 (string)games[2]["Title"] == Missing && (string)games[0]["ExecutablePath"] == fixture &&
@@ -111,8 +149,9 @@ namespace KidLauncher.E2E
             Until(() => File.Exists(Path.Combine(output, "unrelated.events")), "unrelated same-name control process starts");
             string originalMode = Desktop.DisplayMode();
             var launcher = Start("KidLauncher.exe");
-            var room = Window(launcher, "KidLauncher · Let's play");
+            var room = Window(launcher, negativeControl ? "KidLauncher · Let's play" : "KidLauncher · Spelen maar");
             Ready(room, launcher);
+            Find(room, ControlType.Text, negativeControl ? "Pick an adventure" : "Kies een avontuur");
             Desktop.Capture(Path.Combine(output, "02-launcher-ready.png"));
             using (new DesktopRecording(Path.Combine(output, "frames")))
             {
@@ -122,11 +161,11 @@ namespace KidLauncher.E2E
                 Play(room, launcher, Stubborn, stubbornEvents, true, unrelated, originalMode);
                 File.Delete(missing);
                 Click(Find(room, ControlType.Button, Missing));
-                Find(room, ControlType.Text, "That adventure couldn't start.");
+                Find(room, ControlType.Text, "Dit avontuur kon niet starten.");
                 Check(!File.Exists(Path.Combine(output, "missing.events")), "missing executable never starts a game");
                 Desktop.Capture(Path.Combine(output, "05-launch-error.png"));
                 File.Copy(fixture, missing);
-                Click(Find(room, ControlType.Button, "Back to my games"));
+                Click(Find(room, ControlType.Button, "Terug naar mijn spelletjes"));
                 Ready(room, launcher);
                 Check(!unrelated.HasExited, "unrelated same-name process survives both shutdown paths and launch failure");
 

@@ -87,7 +87,7 @@ namespace KidLauncher
         private async Task InitializeAsync()
         {
             busy = true;
-            ShowOverlay("Getting ready…", "Your adventures will be here soon.", false);
+            ShowOverlay(L("Getting ready…", "Even geduld…"), L("Your adventures will be here soon.", "Je avonturen komen eraan."), false);
             try
             {
                 // Recovery deliberately precedes validation and all child interaction.
@@ -100,6 +100,8 @@ namespace KidLauncher
                     config = new LauncherConfiguration();
                     log.Write("Configuration could not load; attempting recovery with detected drive utility: " + ex);
                 }
+                ApplyLanguage();
+                ShowOverlay(L("Getting ready…", "Even geduld…"), L("Your adventures will be here soon.", "Je avonturen komen eraan."), false);
                 CreateSession();
                 await session.RecoverAsync();
                 recovered = true;
@@ -111,8 +113,20 @@ namespace KidLauncher
                 RenderPage();
                 Overlay.Visibility = Visibility.Collapsed;
             }
-            catch (Exception ex) { Error("The play room needs a little help.", ex); }
+            catch (Exception ex) { Error(L("The play room needs a little help.", "De speelkamer heeft wat hulp nodig."), ex); }
             finally { busy = false; BringBack(); }
+        }
+
+        private string L(string english, string dutch) => config?.Language == "en" ? english : dutch;
+
+        private void ApplyLanguage()
+        {
+            Title = L("KidLauncher · Let's play", "KidLauncher · Spelen maar");
+            PlayHeading.Text = L("LET'S PLAY", "SPELEN MAAR");
+            PlaySubtitle.Text = L("Pick an adventure", "Kies een avontuur");
+            ReturnButton.Content = L("Back to my games", "Terug naar mijn spelletjes");
+            AutomationProperties.SetName(Previous, L("Previous page", "Vorige pagina"));
+            AutomationProperties.SetName(Next, L("Next page", "Volgende pagina"));
         }
 
         private void CreateSession()
@@ -142,6 +156,7 @@ namespace KidLauncher
 
         private void RenderPage()
         {
+            ApplyLanguage();
             var a = config.Appearance;
             Tiles.Columns = Math.Max(1, Math.Min(12, a.Columns));
             Tiles.Rows = Math.Max(1, Math.Min(12 / Tiles.Columns, a.Rows));
@@ -157,14 +172,15 @@ namespace KidLauncher
             foreach (var game in games.Skip(page * pageSize).Take(pageSize)) Tiles.Children.Add(CreateTile(game));
             Previous.IsEnabled = page > 0;
             Next.IsEnabled = page < count - 1;
-            PageLabel.Text = games.Count == 0 ? "Adventures are on their way" : "Page " + (page + 1) + " of " + count;
+            PageLabel.Text = games.Count == 0 ? L("Adventures are on their way", "Je avonturen komen eraan") :
+                L("Page ", "Pagina ") + (page + 1) + L(" of ", " van ") + count;
             PageDots.Children.Clear();
             // A bounded dot strip stays legible even with very large game collections.
             for (int i = Math.Max(0, page - 4); i < Math.Min(count, page + 5); i++)
                 PageDots.Children.Add(new System.Windows.Shapes.Ellipse { Width = 9, Height = 9, Margin = new Thickness(4, 0, 4, 0), Fill = i == page ? Brushes.Turquoise : Brushes.SlateGray });
             if (games.Count == 0)
             {
-                var empty = new TextBlock { Text = "★\nReady for new adventures!\nAsk a grown-up to add your games.", FontSize = 28, TextAlignment = TextAlignment.Center, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
+                var empty = new TextBlock { Text = L("★\nReady for new adventures!\nAsk a grown-up to add your games.", "★\nKlaar voor nieuwe avonturen!\nVraag een volwassene om je spelletjes toe te voegen."), FontSize = 28, TextAlignment = TextAlignment.Center, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
                 Tiles.Children.Add(empty);
             }
         }
@@ -215,7 +231,7 @@ namespace KidLauncher
             if (OperationActive || !recovered || Overlay.Visibility == Visibility.Visible || adultOpen) return;
             busy = true;
             PlayRoom.IsEnabled = false;
-            ShowOverlay("Let's go!", "Opening " + game.Title + "…", false);
+            ShowOverlay(L("Let's go!", "Daar gaan we!"), L("Opening ", "We starten ") + game.Title + "…", false);
             try
             {
                 log.Write("Game selected: " + game.Title);
@@ -225,7 +241,7 @@ namespace KidLauncher
                 await session.RunAsync(game, CancellationToken.None);
                 Overlay.Visibility = Visibility.Collapsed;
             }
-            catch (Exception ex) { Error("That adventure couldn't start.", ex); }
+            catch (Exception ex) { Error(L("That adventure couldn't start.", "Dit avontuur kon niet starten."), ex); }
             finally
             {
                 if (hotkey != null) hotkey.Enabled = false;
@@ -240,7 +256,7 @@ namespace KidLauncher
             if (session == null || !session.IsRunning || exitRequested) return;
             exitRequested = true;
             try { log.Write("Global exit-game key pressed."); await session.RequestExitAsync(); }
-            catch (Exception ex) { Error("We need a grown-up's help to come back.", ex); }
+            catch (Exception ex) { Error(L("We need a grown-up's help to come back.", "Vraag een volwassene om je terug te helpen."), ex); }
             finally { exitRequested = false; }
         }
 
@@ -285,13 +301,13 @@ namespace KidLauncher
         {
             diagnostic = ex.ToString();
             log.Write("Launcher: " + diagnostic);
-            ShowOverlay(title, "Ask a grown-up for help, or try coming back to your games.", true);
+            ShowOverlay(title, L("Ask a grown-up for help, or try coming back to your games.", "Vraag een volwassene om hulp, of ga terug naar je spelletjes."), true);
         }
 
         public void ShowUnexpectedError()
         {
             diagnostic = "An unexpected launcher error occurred. See the log in " + store.DataDirectory;
-            ShowOverlay("Oops! Let's try again.", "Ask a grown-up if you need a hand.", true);
+            ShowOverlay(L("Oops! Let's try again.", "Oeps! We proberen het opnieuw."), L("Ask a grown-up if you need a hand.", "Vraag een volwassene als je hulp nodig hebt."), true);
             if (!OperationActive) BringBack();
         }
 
@@ -316,19 +332,31 @@ namespace KidLauncher
         {
             if (!smokeTest) throw new InvalidOperationException("Visual capture requires smoke-test mode.");
             Directory.CreateDirectory(directory);
-            Capture(directory, "launcher-default.png");
-            Next.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            if (PageLabel.Text != "Page 2 of 2" || Tiles.Children.Count != 1)
-                throw new InvalidOperationException("Launcher pagination smoke check failed.");
-            Capture(directory, "launcher-page-2.png");
-            Previous.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            if (PageLabel.Text != "Page 1 of 2" || Tiles.Children.Count != 12)
-                throw new InvalidOperationException("Launcher return-page smoke check failed.");
-            ShowOverlay("Let's go!", "Opening Putt-Putt Saves the Zoo…", false);
-            Capture(directory, "launcher-loading.png");
-            Error("That adventure couldn't start.", new IOException("Visual smoke test error state."));
-            Capture(directory, "launcher-error.png");
-            File.WriteAllText(Path.Combine(directory, "launcher-checks.txt"), "PASS: 12 tiles on page 1; 1 tile on page 2; previous/next Click events update pages; loading and error states rendered.");
+            foreach (string language in new[] { "nl", "en" })
+            {
+                config.Language = language; page = 0;
+                RenderPage(); Overlay.Visibility = Visibility.Collapsed;
+                string prefix = language == "nl" ? "launcher-" : "launcher-english-";
+                if (PlaySubtitle.Text != (language == "nl" ? "Kies een avontuur" : "Pick an adventure"))
+                    throw new InvalidOperationException("Launcher language did not update.");
+                Capture(directory, prefix + "default.png");
+                Next.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                if (PageLabel.Text != (language == "nl" ? "Pagina 2 van 2" : "Page 2 of 2") || Tiles.Children.Count != 1)
+                    throw new InvalidOperationException("Launcher pagination smoke check failed.");
+                Capture(directory, prefix + "page-2.png");
+                Previous.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                if (PageLabel.Text != (language == "nl" ? "Pagina 1 van 2" : "Page 1 of 2") || Tiles.Children.Count != 12)
+                    throw new InvalidOperationException("Launcher return-page smoke check failed.");
+                ShowOverlay(L("Let's go!", "Daar gaan we!"), L("Opening ", "We starten ") + "Putt-Putt Saves the Zoo…", false);
+                Capture(directory, prefix + "loading.png");
+                Error(L("That adventure couldn't start.", "Dit avontuur kon niet starten."), new IOException("Visual smoke test error state."));
+                Capture(directory, prefix + "error.png");
+                config.Games.ForEach(game => game.Visible = false);
+                RenderPage(); Overlay.Visibility = Visibility.Collapsed;
+                Capture(directory, prefix + "empty.png");
+                config.Games.ForEach(game => game.Visible = true);
+            }
+            File.WriteAllText(Path.Combine(directory, "launcher-checks.txt"), "PASS: Dutch and English headings, pagination, loading, error and empty states rendered. 12 tiles on page 1; 1 on page 2; previous/next Click events update pages.");
             authorizedExit = true;
         }
 
@@ -421,7 +449,7 @@ namespace KidLauncher
                 if (configure)
                 {
                     busy = true;
-                    ShowOverlay("Grown-up time", "Your games will be back soon.", false);
+                    ShowOverlay(L("Grown-up time", "Even tijd voor de grote mensen"), L("Your games will be back soon.", "Je spelletjes zijn zo weer terug."), false);
                     Topmost = false;
                     if (hotkey != null) hotkey.Enabled = false;
                     try
@@ -434,7 +462,7 @@ namespace KidLauncher
                         }
                         await InitializeAsync();
                     }
-                    catch (Exception ex) { Error("The settings need a grown-up's help.", ex); }
+                    catch (Exception ex) { Error(L("The settings need a grown-up's help.", "Vraag een volwassene om naar de instellingen te kijken."), ex); }
                     finally { busy = false; BringBack(); }
                 }
             }

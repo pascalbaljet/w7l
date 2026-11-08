@@ -56,9 +56,14 @@ namespace KidLauncher.Tests
             using (var fixture = new Fixture())
             {
                 var configuration = new LauncherConfiguration();
+                Assert(configuration.Language == "nl", "New configurations must default to Dutch.");
+                File.WriteAllText(fixture.Store.ConfigurationPath, "{\"SchemaVersion\":1,\"Games\":[]}");
+                Assert(fixture.Store.Load().Language == "nl", "Existing configurations without a language must default to Dutch.");
+                configuration.Language = "en";
                 configuration.Games.Add(fixture.Game);
                 configuration.Games[0].Title = "Putt-Putt & friends – speel!";
                 fixture.Store.Save(configuration);
+                Assert(fixture.Store.Load().Language == "en", "Selected English language was not persisted.");
                 configuration.Games[0].Title = "Updated";
                 fixture.Store.Save(configuration);
                 Assert(fixture.Store.Load().Games[0].Title == "Updated", "Configuration round-trip lost data.");

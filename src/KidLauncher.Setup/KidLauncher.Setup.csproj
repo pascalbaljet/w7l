@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.IO.Compression.FileSystem" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Windows.Forms" />
+    <EmbeddedResource Include="$(PortableZipPath)" LogicalName="KidLauncher.Payload.zip" Condition="'$(PortableZipPath)' != '' And Exists('$(PortableZipPath)')" />
+  </ItemGroup>
+  <Target Name="RequirePortablePayload" BeforeTargets="PrepareForBuild">
+    <Error Condition="'$(PortableZipPath)' == '' Or !Exists('$(PortableZipPath)')" Text="Set PortableZipPath to the existing KidLauncher portable ZIP before building the installer." />
+  </Target>
+</Project>

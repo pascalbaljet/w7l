@@ -6,7 +6,11 @@ The launcher provides large game tiles, temporary resolution changes, Virtual Cl
 
 ## Get a Windows build
 
-Open the latest successful **Windows build** run in [GitHub Actions](https://github.com/pascalbaljet/w7l/actions/workflows/windows.yml). Download the **KidLauncher-win7-x86** artifact and extract its ZIP. GitHub may wrap the portable ZIP in another ZIP.
+Download `KidLauncher-Setup-win7-x86.exe` from [GitHub Releases](https://github.com/pascalbaljet/w7l/releases). Setup installs to `C:\Games\KidLauncher` and requests administrator permission. Updates replace application files without replacing existing configuration, data, logs, artwork, or disc images. Close both applications before updating. Start the installed applications yourself after Setup closes.
+
+For a portable installation, download `KidLauncher-win7-x86.zip` instead and extract it into a writable folder. CI builds are also available from the latest successful **Windows build** run in [GitHub Actions](https://github.com/pascalbaljet/w7l/actions/workflows/windows.yml).
+
+The children's launcher defaults to Dutch. To select English, open **General → Children's launcher language** in the configurator, save, and reopen the launcher. The configurator stays in English.
 
 Read the [deployment guide](docs/deployment.md) before testing with installed games. Windows CI compilation and automated tests do not establish Windows 7, fullscreen-game, or Virtual CloneDrive compatibility. Use the [real-machine checklist](docs/testing.md) to record those results.
 
@@ -14,7 +18,7 @@ Read the [deployment guide](docs/deployment.md) before testing with installed ga
 
 On Windows, install the .NET 8 SDK and the .NET Framework 4.8 Developer Pack. Visual Studio 2022 Build Tools with the .NET desktop workload also supplies the framework reference assemblies. The SDK is a build tool, not the application runtime.
 
-Run `scripts/build.ps1` from PowerShell. The script builds the solution, runs the dependency-free .NET Framework test executable, and creates `artifacts/KidLauncher-win7-x86.zip`. A failed build or test stops packaging.
+Run `scripts/build.ps1` from PowerShell. The script builds the solution, runs the dependency-free .NET Framework test executable, and creates `artifacts/KidLauncher-win7-x86.zip`. It then embeds that ZIP in `artifacts/KidLauncher-Setup-win7-x86.exe`. A failed build or test stops packaging.
 
 The solution also compiles against framework reference assemblies in a Linux orb. Application execution and WPF rendering require Windows. `.agents/setup` installs the pinned compiler SDK and restores solution references in Amp orbs. `.agents/resume` performs no installs.
 
@@ -22,7 +26,9 @@ The solution also compiles against framework reference assemblies in a Linux orb
 
 Use an unlocked Windows desktop with no other KidLauncher instance running. Install `ffmpeg` on `PATH`. After `scripts/build.ps1`, run `scripts/e2e.ps1` from PowerShell. Do not use the mouse or keyboard during the run.
 
-The tests extract the portable ZIP into disposable directories, configure games and a PIN through the GUI, and reopen the configurator to check persistence. Real mouse and keyboard input launches a test game and requests one-press F6 shutdown. The tests cover graceful and forced shutdown, an unrelated same-name process, a missing executable, PIN rejection, and authorized desktop exit. A separate negative control configures F7 and must fail specifically when F6 cannot close the game.
+The positive journey installs the actual Setup executable into a disposable directory. It configures games, language, and a PIN through the GUI, then reopens the configurator to check persistence. Real mouse and keyboard input launches a test game and requests one-press F6 shutdown. The tests cover graceful and forced shutdown, an unrelated same-name process, a missing executable, PIN rejection, and authorized desktop exit. A separate portable negative control configures F7 and must fail specifically when F6 cannot close the game.
+
+`scripts/installer-test.ps1` checks fresh installation and an update over existing configuration, recovery state, logs, artwork, disc images, backups, and unrelated files. It compares their SHA-256 hashes and checks that an old application binary gets replaced. It also exercises the real Setup window. Run it on an elevated, unlocked Windows desktop. CI retains screenshots and a recording in **Installer-evidence**.
 
 Windows CI runs these tests after the regression tests and WPF render checks. Download **Windows-E2E-evidence** from the workflow run for screenshots, desktop recordings, fixture events, and application logs. The tests do not switch display modes or mount disc images. Windows 7, real games, elevation, and Virtual CloneDrive still require the [real-machine checklist](docs/testing.md).
 

@@ -45,7 +45,7 @@ namespace KidLauncher.Configurator
             System.Windows.Media.Imaging.BitmapSource bg = null;
             try { bg = Artwork.Image(store.ResolvePath(a.BackgroundImage)); } catch { /* Partial paths are normal while typing. */ }
             if (bg != null) preview.Children.Add(new Image { Source = bg, Width = 1920, Height = 1080, Stretch = Stretch.UniformToFill });
-            var heading = new TextBlock { Text = "Let’s play!", Foreground = Brushes.White, FontSize = 62, FontWeight = FontWeights.Bold };
+            var heading = new TextBlock { Text = config.Language == "en" ? "Let's play!" : "Spelen maar!", Foreground = Brushes.White, FontSize = 62, FontWeight = FontWeights.Bold };
             Canvas.SetLeft(heading, 60); Canvas.SetTop(heading, 28); preview.Children.Add(heading);
             int columns = Math.Max(1, Math.Min(12, a.Columns)), rows = Math.Max(1, Math.Min(12, a.Rows)), capacity = columns * rows;
             double gap = Math.Max(0, Math.Min(100, a.Spacing)), width = Math.Max(20, (1800 - gap * (columns - 1)) / columns), height = Math.Max(20, (800 - gap * (rows - 1)) / rows);
@@ -115,7 +115,16 @@ namespace KidLauncher.Configurator
 
         UIElement BuildGeneral()
         {
-            var p = Panel(); Heading(p, "Start with Windows");
+            var p = Panel();
+            Heading(p, "Children's launcher language");
+            var language = new ComboBox { MaxWidth = 260, HorizontalAlignment = HorizontalAlignment.Left, MinWidth = 220 };
+            language.Items.Add("Nederlands"); language.Items.Add("English");
+            language.SelectedIndex = config.Language == "en" ? 1 : 0;
+            AutomationProperties.SetName(language, "Launcher language");
+            language.SelectionChanged += (s, e) => { config.Language = language.SelectedIndex == 1 ? "en" : "nl"; RefreshPreview(); };
+            p.Children.Add(language);
+            p.Children.Add(Note("Dutch is the default, including for existing configurations without a language setting. Save configuration and reopen the launcher to apply. The configurator stays in English."));
+            Heading(p, "Start with Windows");
             var startup = new CheckBox { Content = "Launch KidLauncher when this Windows user signs in", IsChecked = !smoke && WindowsStartupService.IsEnabled(), Margin = new Thickness(0, 12, 0, 12) }; p.Children.Add(startup);
             p.Children.Add(Button("Apply startup shortcut", () => { EnsureIdle(); WindowsStartupService.SetEnabled(startup.IsChecked == true, Path.Combine(store.ApplicationDirectory, "KidLauncher.exe")); status.Text = "Per-user startup shortcut updated."; }));
             p.Children.Add(Note("This is a normal shortcut in the current user's Startup folder. It does not replace Explorer or change other users. Apply is immediate and separate from Save configuration. Administrator games may still show UAC prompts."));

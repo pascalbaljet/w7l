@@ -99,6 +99,7 @@ namespace KidLauncher.Core
             var errors = new List<string>();
             if (configuration == null) { errors.Add("Configuration is empty."); return errors; }
             if (configuration.SchemaVersion != 1) errors.Add("Unsupported configuration schema. Use a compatible KidLauncher version.");
+            if (configuration.Language != "nl" && configuration.Language != "en") errors.Add("Choose Dutch (nl) or English (en) for the launcher language.");
             if (configuration.Appearance == null || configuration.Controls == null || configuration.Games == null)
             { errors.Add("Configuration sections are missing."); return errors; }
             var appearance = configuration.Appearance;

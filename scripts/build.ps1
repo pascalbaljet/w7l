@@ -19,3 +19,8 @@ Copy-Item README.md, LICENSE $package
 Copy-Item docs "$package/docs" -Recurse
 Compress-Archive -Path $package -DestinationPath artifacts/KidLauncher-win7-x86.zip -Force
 Write-Host 'Portable build: artifacts/KidLauncher-win7-x86.zip'
+$zip = (Resolve-Path artifacts/KidLauncher-win7-x86.zip).Path
+dotnet build src/KidLauncher.Setup/KidLauncher.Setup.csproj --configuration $Configuration --property:Platform=x86 "--property:PortableZipPath=$zip"
+if ($LASTEXITCODE -ne 0) { throw 'Installer build failed.' }
+Copy-Item "artifacts/bin/KidLauncher.Setup/$Configuration/KidLauncher.Setup.exe" 'artifacts/KidLauncher-Setup-win7-x86.exe' -Force
+Write-Host 'Installer: artifacts/KidLauncher-Setup-win7-x86.exe'

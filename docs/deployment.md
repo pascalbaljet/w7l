@@ -10,9 +10,21 @@
 
 The target computer does not need Visual Studio, the .NET SDK, Node.js, Python, or internet access to run KidLauncher.
 
-## Copy and configure the portable build
+## Install or update KidLauncher
 
-1. Extract the entire portable `KidLauncher` directory to a writable location, such as `C:\Games\KidLauncher`. Do not copy only the executable files.
+1. Download `KidLauncher-Setup-win7-x86.exe` from [GitHub Releases](https://github.com/pascalbaljet/w7l/releases).
+2. Close KidLauncher and its configurator.
+3. Run Setup and accept the administrator prompt.
+4. Click **Install / Update** to install to `C:\Games\KidLauncher`.
+5. Close Setup and open `KidLauncher.Configurator.exe` from that directory.
+
+Setup replaces application files but preserves existing `games.json`, its backup, data, logs, artwork, disc images, and other user files. Setup does not move an older installation from another folder. Back up that folder before moving your configuration and assets. Setup does not install .NET Framework or Virtual CloneDrive.
+
+For a different local directory, run Setup with `--install-dir "D:\Games\KidLauncher"`. Add `--quiet` for an unattended install from an already elevated process. Setup still requires administrator permission.
+
+## Configure games
+
+1. If you use the portable ZIP instead of Setup, extract the entire `KidLauncher` directory to a writable location. Do not copy only the executables.
 2. Open `KidLauncher.Configurator.exe`.
 3. Add games with **Add game**, or use **Import from Desktop** and select the shortcuts you want. Review the executable, arguments, working directory, and administrator setting before importing.
 4. Choose artwork. Use the artwork editor to crop and save a managed copy in `Assets`.
@@ -23,6 +35,8 @@ The target computer does not need Visual Studio, the .NET SDK, Node.js, Python, 
 9. Press F6 once. Check that the game exits and the launcher returns at the original resolution.
 
 The hidden adult shortcut is Ctrl+Alt+S. Adult access requires the PIN set in the configurator. Keep a copy of the original portable build and your configured data before updating.
+
+The children's launcher defaults to Dutch, including when an older configuration has no language setting. To select English, choose **General → Children's launcher language → English**, save, and reopen the launcher. The configurator and adult dialogs stay in English.
 
 ## Configure a disc game
 

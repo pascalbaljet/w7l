@@ -24,6 +24,9 @@ jobs:
       - name: Install desktop recording encoder
         shell: powershell
         run: choco install ffmpeg --version=7.1.1 --yes --no-progress
+      - name: Verify installer and data-preserving updates
+        shell: powershell
+        run: ./scripts/installer-test.ps1
       - name: Exercise packaged applications end to end
         shell: powershell
         run: ./scripts/e2e.ps1
@@ -32,6 +35,17 @@ jobs:
           name: KidLauncher-win7-x86
           path: artifacts/KidLauncher-win7-x86.zip
           if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: KidLauncher-Setup-win7-x86
+          path: artifacts/KidLauncher-Setup-win7-x86.exe
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Installer-evidence
+          path: artifacts/installer-evidence
+          if-no-files-found: warn
       - uses: actions/upload-artifact@v4
         if: always()
         with:

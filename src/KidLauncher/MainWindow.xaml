@@ -1,15 +1,15 @@
 <Window x:Class="KidLauncher.MainWindow"
  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
- Title="KidLauncher · Let's play" WindowStyle="None" ResizeMode="NoResize"
+ Title="KidLauncher · Spelen maar" WindowStyle="None" ResizeMode="NoResize"
  WindowState="Maximized" WindowStartupLocation="CenterScreen" Background="#14233B"
  ShowInTaskbar="False" FontFamily="Segoe UI" Foreground="White">
  <Grid x:Name="Backdrop">
   <Grid Margin="36,20,36,20" x:Name="PlayRoom">
    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
    <Grid Margin="12,0,12,14">
-    <StackPanel><TextBlock Text="LET'S PLAY" Foreground="#80E1D0" FontSize="16" FontWeight="Bold" />
-     <TextBlock Text="Pick an adventure" FontSize="38" FontWeight="Bold" />
+    <StackPanel><TextBlock x:Name="PlayHeading" Text="SPELEN MAAR" Foreground="#80E1D0" FontSize="16" FontWeight="Bold" />
+     <TextBlock x:Name="PlaySubtitle" Text="Kies een avontuur" FontSize="38" FontWeight="Bold" />
     </StackPanel>
     <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center" Text="★" FontSize="42" Foreground="#FFD477" />
    </Grid>
@@ -23,9 +23,9 @@
   <Border x:Name="Overlay" Background="#F214233B" Visibility="Visible">
    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="780" Margin="40">
     <TextBlock x:Name="OverlaySymbol" Text="★" Foreground="#FFD477" FontSize="90" HorizontalAlignment="Center" />
-    <TextBlock x:Name="OverlayTitle" Text="Getting ready…" FontSize="42" FontWeight="Bold" TextAlignment="Center" TextWrapping="Wrap" Margin="0,18,0,12" />
-    <TextBlock x:Name="OverlayMessage" Text="Your adventures will be here soon." FontSize="24" TextAlignment="Center" TextWrapping="Wrap" />
-    <Button x:Name="ReturnButton" Content="Back to my games" Visibility="Collapsed" Margin="0,30,0,0" Click="Return_Click" />
+    <TextBlock x:Name="OverlayTitle" Text="Even geduld…" FontSize="42" FontWeight="Bold" TextAlignment="Center" TextWrapping="Wrap" Margin="0,18,0,12" />
+    <TextBlock x:Name="OverlayMessage" Text="Je avonturen komen eraan." FontSize="24" TextAlignment="Center" TextWrapping="Wrap" />
+    <Button x:Name="ReturnButton" Content="Terug naar mijn spelletjes" Visibility="Collapsed" Margin="0,30,0,0" Click="Return_Click" />
    </StackPanel>
   </Border>
  </Grid>

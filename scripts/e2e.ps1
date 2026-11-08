@@ -14,8 +14,16 @@ function Invoke-Journey([string]$Name, [bool]$Negative) {
     $destination = Join-Path $work $Name
     $output = Join-Path $evidence $Name
     New-Item $output -ItemType Directory -Force | Out-Null
-    Expand-Archive 'artifacts/KidLauncher-win7-x86.zip' $destination
     $app = Join-Path $destination 'KidLauncher'
+    if ($Negative) {
+        Expand-Archive 'artifacts/KidLauncher-win7-x86.zip' $destination
+    } else {
+        $setup = Start-Process 'artifacts/KidLauncher-Setup-win7-x86.exe' -ArgumentList "--quiet --install-dir `"$app`"" -PassThru
+        $null = $setup.Handle
+        if (-not $setup.WaitForExit(30000)) { $setup.Kill(); throw 'E2E installation timed out.' }
+        $setup.WaitForExit()
+        if ($setup.ExitCode -ne 0) { throw "E2E installation failed ($($setup.ExitCode))." }
+    }
     $arguments = "`"$app`" `"$output`""
     if ($Negative) { $arguments += ' --negative-control' }
     $process = Start-Process $runner -ArgumentList $arguments -PassThru -RedirectStandardOutput "$output/stdout.txt" -RedirectStandardError "$output/stderr.txt"

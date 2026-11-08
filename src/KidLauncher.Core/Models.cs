@@ -6,6 +6,7 @@ namespace KidLauncher.Core
     public sealed class LauncherConfiguration
     {
         public int SchemaVersion { get; set; } = 1;
+        public string Language { get; set; } = "nl";
         public List<Game> Games { get; set; } = new List<Game>();
         public AppearanceSettings Appearance { get; set; } = new AppearanceSettings();
         public ControlSettings Controls { get; set; } = new ControlSettings();
