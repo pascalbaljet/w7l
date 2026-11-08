@@ -105,7 +105,11 @@ namespace KidLauncher.Configurator
             Heading(panel, "Display mode");
             var modes = new ComboBox { Margin = new Thickness(0, 5, 0, 5), MinHeight = 30 };
             modes.Items.Add("Use current resolution");
-            try { foreach (var mode in display.Enumerate()) modes.Items.Add(mode); }
+            try
+            {
+                foreach (var mode in display.Enumerate().GroupBy(m => new { m.Width, m.Height, m.Frequency, m.BitsPerPixel }).Select(group => group.First()))
+                    modes.Items.Add(mode);
+            }
             catch (Exception ex) { panel.Children.Add(Note("Display enumeration failed: " + ex.Message)); }
             modes.SelectedIndex = 0;
             if (g.Resolution != null)

@@ -104,6 +104,7 @@ namespace KidLauncher.E2E
             Until(() => Value(settings, "Title") == Cooperative && Value(settings, "ExecutablePath") == fixture,
                 "saved settings survive closing and reopening the configurator");
             Log("PASS: configuration and PIN created through the GUI, saved, and reloaded.");
+            if (!negativeControl) TestInConfigurator(configurator, settings, normalEvents);
             Close(configurator, settings);
 
             var unrelated = Start("E2EGame.exe", "--test-game " + Quote(Path.Combine(output, "unrelated.events")));
@@ -157,6 +158,32 @@ namespace KidLauncher.E2E
             Set(settings, "Title", title); Set(settings, "ExecutablePath", executable);
             Set(settings, "Arguments", "--test-game " + Quote(events) + (stubborn ? " --ignore-close" : ""));
             Set(settings, "WorkingDirectory", app);
+        }
+
+        static void TestInConfigurator(Process configurator, AutomationElement settings, string events)
+        {
+            string mode = Desktop.DisplayMode();
+            Invoke(settings, "▶ Test game (F6 exits)");
+            Until(() => File.Exists(events) && File.ReadAllLines(events).Any(l => l.StartsWith("START ")), "configurator test game starts");
+            int pid = int.Parse(File.ReadAllLines(events).Single(l => l.StartsWith("START ")).Substring(6));
+            var game = Process.GetProcessById(pid); owned.Add(game);
+            var window = Window(game, null);
+            Until(() => Desktop.Foreground == Handle(window), "configurator test game receives foreground input");
+            Desktop.Key(0x75);
+            Until(() => game.HasExited, "configurator test game exits after one F6");
+            var observed = Window(configurator, "Observed processes — " + Cooperative);
+            Check(!File.Exists(Journal) && Desktop.DisplayMode() == mode, "configurator completes recovery before showing observed processes");
+            Check(File.ReadAllLines(events).Any(l => l.StartsWith("CLOSE_ACCEPTED ")), "configurator F6 requests graceful shutdown");
+            var item = Wait(() => observed.FindFirst(TreeScope.Descendants,
+                new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.ListItem)), "observed game process candidate");
+            Check(item.Current.Name.StartsWith("E2EGame "), "observed process list identifies the fixture game");
+            ((SelectionItemPattern)item.GetCurrentPattern(SelectionItemPattern.Pattern)).Select();
+            Desktop.Capture(Path.Combine(output, "01-configurator-observed.png"));
+            Invoke(observed, "Use selected process names");
+            Invoke(settings, "Save configuration");
+            Until(() => ((object[])Games()[0]["ProcessNames"]).Contains("E2EGame"), "GUI saves the observed process selection");
+            File.Move(events, Path.Combine(output, "configurator.events"));
+            Log("PASS: configurator one-press F6 shutdown, recovery and observed-process selection.");
         }
 
         static void Play(AutomationElement room, Process launcher, string title, string events, bool stubborn, Process unrelated, string mode)

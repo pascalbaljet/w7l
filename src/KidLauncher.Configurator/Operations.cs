@@ -56,9 +56,14 @@ namespace KidLauncher.Configurator
                 if (errors.Count > 0) throw new InvalidOperationException(string.Join("\n", errors));
                 SetBusy(true); started = true;
                 session = null; observed.Clear(); observedGame = game;
-                testHotkey = new WindowsHotkey(new WindowInteropHelper(this).Handle, 0x75, StopTest); testHotkey.Enabled = true;
+                testHotkey = new WindowsHotkey(new WindowInteropHelper(this).Handle, 0x75, () =>
+                {
+                    log.Write("Configurator F6 received; active game session: " + (session != null && session.IsRunning));
+                    StopTest();
+                }); testHotkey.Enabled = true;
                 if (!testHotkey.Enabled) throw new InvalidOperationException("F6 could not be enabled; the test has not started.");
                 status.Text = "F6 exits the test. " + testHotkey.Strategy;
+                log.Write("Configurator test hotkey enabled: " + testHotkey.Strategy);
                 session = NewSession(); observedGame = game; observed.Clear();
                 await session.RunAsync(snapshot, CancellationToken.None);
                 status.Text = "Test finished; display and disc cleanup completed. Select observed process names, then save.";
