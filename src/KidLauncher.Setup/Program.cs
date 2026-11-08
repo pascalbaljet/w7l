@@ -65,6 +65,7 @@ namespace KidLauncher.Setup
             var result = new Label { Text = "Existing games, artwork, disc images and other user files are kept.\r\nClose KidLauncher and its configurator before continuing.", Location = new Point(20, 92), Size = new Size(500, 100) };
             var install = new Button { Text = "Install / Update", Location = new Point(300, 210), Width = 130 };
             var close = new Button { Text = "Close", Location = new Point(440, 210), Width = 80, DialogResult = DialogResult.Cancel };
+            close.Click += (sender, args) => Close();
             install.Click += (sender, args) =>
             {
                 install.Enabled = false;
