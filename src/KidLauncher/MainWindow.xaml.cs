@@ -56,7 +56,19 @@ namespace KidLauncher
             this.log = log;
             this.smokeTest = smokeTest;
             PlayRoom.SizeChanged += (s, e) => SizeTiles();
-            Overlay.IsVisibleChanged += (s, e) => AnimateOverlayStar();
+            Overlay.IsVisibleChanged += (s, e) => { if (Overlay.IsVisible) StopScenery(); AnimateOverlayStar(); };
+            IsVisibleChanged += (s, e) => { if (!IsVisible) StopScenery(); };
+            Moon.MouseEnter += (s, e) =>
+            {
+                if (!CanPlayWithScenery) return;
+                PulseScenery(MoonGlyph, 1.08, -8);
+                AnimateValue(MoonHalo, UIElement.OpacityProperty, 0.6, 180);
+            };
+            Moon.MouseLeave += (s, e) => AnimateValue(MoonHalo, UIElement.OpacityProperty, 0, 180);
+            Moon.GotKeyboardFocus += (s, e) => { if (CanPlayWithScenery) PulseScenery(MoonGlyph, 1.08, -8); };
+            WishingStars.MouseEnter += (s, e) => WakeStars();
+            WishingStars.GotKeyboardFocus += (s, e) => WakeStars();
+            SystemParameters.StaticPropertyChanged += MotionSettingsChanged;
             SourceInitialized += (s, e) => { Topmost = true; };
             Loaded += async (s, e) =>
             {
@@ -135,6 +147,8 @@ namespace KidLauncher
             ReturnButton.Content = L("Back to my games", "Terug naar mijn spelletjes");
             AutomationProperties.SetName(Previous, L("Previous page", "Vorige pagina"));
             AutomationProperties.SetName(Next, L("Next page", "Volgende pagina"));
+            AutomationProperties.SetName(Moon, L("Make a shooting star", "Maak een vallende ster"));
+            AutomationProperties.SetName(WishingStars, L("Wake the stars", "Maak de sterren wakker"));
         }
 
         private void CreateSession()
@@ -270,7 +284,8 @@ namespace KidLauncher
                 Data = Geometry.Parse("M16,0 L19,13 32,16 19,19 16,32 13,19 0,16 13,13Z M40,30 L42,37 49,39 42,41 40,48 38,41 31,39 38,37Z"),
                 Fill = cream, Width = 49, Height = 48, Opacity = 0,
                 HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top,
-                Margin = new Thickness(0, -16, -14, 0)
+                Margin = new Thickness(0, -16, -14, 0), RenderTransformOrigin = new Point(0.5, 0.5),
+                RenderTransform = new TransformGroup { Children = { new ScaleTransform(), new RotateTransform() } }
             };
             visual.Children.Add(glint);
             var button = new Button
@@ -302,6 +317,7 @@ namespace KidLauncher
                 flash.KeyFrames.Add(new EasingDoubleKeyFrame(1, KeyTime.FromPercent(0.3), new QuadraticEase { EasingMode = EasingMode.EaseOut }));
                 flash.KeyFrames.Add(new EasingDoubleKeyFrame(0, KeyTime.FromPercent(1), new QuadraticEase { EasingMode = EasingMode.EaseIn }));
                 glint.BeginAnimation(UIElement.OpacityProperty, flash);
+                PulseScenery(glint, 1.2, 12);
             };
             bool highlighted = false;
             Action updateFeedback = () =>
@@ -326,6 +342,83 @@ namespace KidLauncher
         }
 
         private bool MotionEnabled => !smokeTest && SystemParameters.ClientAreaAnimation;
+
+        private bool CanPlayWithScenery => MotionEnabled && !OperationActive && !adultOpen &&
+            IsVisible && !Overlay.IsVisible && BackdropAccents.IsVisible;
+
+        private void Moon_Click(object sender, RoutedEventArgs e)
+        {
+            if (!CanPlayWithScenery) return;
+            PulseScenery(MoonGlyph, 1.08, -8);
+            var origin = Moon.TranslatePoint(new Point(12, 12), BackdropAccents);
+            var travel = (TranslateTransform)ShootingStar.RenderTransform;
+            AnimateValue(travel, TranslateTransform.XProperty, Math.Max(12, origin.X - 340), 900, origin.X);
+            AnimateValue(travel, TranslateTransform.YProperty, origin.Y + 70, 900, origin.Y);
+            var glow = new DoubleAnimationUsingKeyFrames { Duration = TimeSpan.FromMilliseconds(900), FillBehavior = FillBehavior.Stop };
+            glow.KeyFrames.Add(new LinearDoubleKeyFrame(0, KeyTime.FromPercent(0)));
+            glow.KeyFrames.Add(new LinearDoubleKeyFrame(1, KeyTime.FromPercent(0.1)));
+            glow.KeyFrames.Add(new LinearDoubleKeyFrame(1, KeyTime.FromPercent(0.55)));
+            glow.KeyFrames.Add(new LinearDoubleKeyFrame(0, KeyTime.FromPercent(1)));
+            ShootingStar.BeginAnimation(UIElement.OpacityProperty, glow);
+        }
+
+        private void Stars_Click(object sender, RoutedEventArgs e) { WakeStars(); }
+
+        private void WakeStars()
+        {
+            if (!CanPlayWithScenery) return;
+            int delay = 0;
+            foreach (var star in new[] { StarOne, StarTwo, StarThree, StarFour })
+            {
+                PulseScenery(star, 1.55, 18, delay);
+                delay += 120;
+            }
+            var glow = new DoubleAnimation(0.22, 0.75, TimeSpan.FromMilliseconds(400))
+            {
+                AutoReverse = true, FillBehavior = FillBehavior.Stop,
+                EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut }
+            };
+            StarThread.BeginAnimation(UIElement.OpacityProperty, glow);
+        }
+
+        private void PulseScenery(FrameworkElement glyph, double size, double angle, int delay = 0)
+        {
+            var transforms = (TransformGroup)glyph.RenderTransform;
+            var scale = (ScaleTransform)transforms.Children[0];
+            var rotation = (RotateTransform)transforms.Children[1];
+            var pulse = new DoubleAnimation(1, size, TimeSpan.FromMilliseconds(340))
+            {
+                BeginTime = TimeSpan.FromMilliseconds(delay), AutoReverse = true, FillBehavior = FillBehavior.Stop,
+                EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut }
+            };
+            scale.BeginAnimation(ScaleTransform.ScaleXProperty, pulse);
+            scale.BeginAnimation(ScaleTransform.ScaleYProperty, pulse);
+            var nod = pulse.Clone(); nod.From = 0; nod.To = angle;
+            rotation.BeginAnimation(RotateTransform.AngleProperty, nod);
+        }
+
+        private void StopScenery()
+        {
+            foreach (var glyph in new[] { MoonGlyph, StarOne, StarTwo, StarThree, StarFour })
+            {
+                var transforms = (TransformGroup)glyph.RenderTransform;
+                var scale = (ScaleTransform)transforms.Children[0];
+                scale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+                scale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+                ((RotateTransform)transforms.Children[1]).BeginAnimation(RotateTransform.AngleProperty, null);
+            }
+            MoonHalo.BeginAnimation(UIElement.OpacityProperty, null); MoonHalo.Opacity = 0;
+            StarThread.BeginAnimation(UIElement.OpacityProperty, null);
+            ShootingStar.BeginAnimation(UIElement.OpacityProperty, null);
+            var travel = (TranslateTransform)ShootingStar.RenderTransform;
+            travel.BeginAnimation(TranslateTransform.XProperty, null);
+            travel.BeginAnimation(TranslateTransform.YProperty, null);
+        }
+
+        private void MotionSettingsChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(SystemParameters.ClientAreaAnimation) && !MotionEnabled) StopScenery();
+        }
 
         private void AnimateValue(DependencyObject target, DependencyProperty property, double value, int milliseconds, double? from = null)
         {
@@ -564,6 +657,7 @@ namespace KidLauncher
         private async Task OpenAdultAsync()
         {
             adultOpen = true;
+            StopScenery();
             Mouse.OverrideCursor = null;
             try
             {
@@ -673,6 +767,7 @@ namespace KidLauncher
         {
             if (!authorizedExit || OperationActive) { e.Cancel = true; return; }
             Microsoft.Win32.SystemEvents.DisplaySettingsChanged -= DisplaySettingsChanged;
+            SystemParameters.StaticPropertyChanged -= MotionSettingsChanged;
             idleTimer.Stop();
             if (hotkey != null) hotkey.Dispose();
             Mouse.OverrideCursor = null;

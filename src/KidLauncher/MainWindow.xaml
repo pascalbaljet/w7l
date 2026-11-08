@@ -4,28 +4,69 @@
  Title="KidLauncher" WindowStyle="None" ResizeMode="NoResize"
  WindowState="Maximized" WindowStartupLocation="CenterScreen" Background="#14233B"
  ShowInTaskbar="False" FontFamily="Segoe UI" Foreground="White" UseLayoutRounding="True">
+ <Window.Resources>
+  <Style x:Key="SkyToy" TargetType="Button">
+   <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+   <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">
+    <Border Background="Transparent"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+   </ControlTemplate></Setter.Value></Setter>
+  </Style>
+ </Window.Resources>
  <Grid x:Name="Backdrop" Focusable="True">
-  <Grid x:Name="BackdropAccents" IsHitTestVisible="False" ClipToBounds="True">
-   <Rectangle>
+  <Grid x:Name="BackdropAccents" ClipToBounds="True">
+   <Rectangle IsHitTestVisible="False">
     <Rectangle.Fill><LinearGradientBrush StartPoint="0,0" EndPoint="0.8,1"><GradientStop Color="#303F285E" Offset="0"/><GradientStop Color="#805D487C" Offset="0.65"/><GradientStop Color="#A07A637D" Offset="1"/></LinearGradientBrush></Rectangle.Fill>
    </Rectangle>
-   <Viewbox Stretch="UniformToFill">
+   <Viewbox Stretch="UniformToFill" IsHitTestVisible="False">
     <Canvas Width="1920" Height="1080">
      <!-- Still, resolution-independent scenery; no render loop, blur or particle field. -->
      <Path Fill="#13C5B2D8" Data="M0,890 Q290,680 620,880 Q960,1040 1230,830 Q1580,620 1920,820 L1920,1080 L0,1080Z"/>
      <Path Fill="#16332753" Data="M0,1000 Q340,790 740,980 Q1130,1130 1500,910 Q1720,800 1920,970 L1920,1080 L0,1080Z"/>
-     <Path Stroke="#37EAD9B0" StrokeThickness="1" Data="M228,166 L326,116 408,184 468,146 M1410,294 L1480,242 1512,314"/>
-     <Path Fill="#BDEAD9B0" Data="M225,161 L228,151 231,161 241,164 231,167 228,177 225,167 215,164Z M405,181 L408,171 411,181 421,184 411,187 408,197 405,187 395,184Z M1509,311 L1512,301 1515,311 1525,314 1515,317 1512,327 1509,317 1499,314Z"/>
-     <Ellipse Canvas.Left="323" Canvas.Top="113" Width="6" Height="6" Fill="#D5EAD9B0"/>
-     <Ellipse Canvas.Left="465" Canvas.Top="143" Width="5" Height="5" Fill="#90EAD9B0"/>
+     <Path Stroke="#37EAD9B0" StrokeThickness="1" Data="M1410,294 L1480,242 1512,314"/>
+     <Path Fill="#BDEAD9B0" Data="M1509,311 L1512,301 1515,311 1525,314 1515,317 1512,327 1509,317 1499,314Z"/>
      <Ellipse Canvas.Left="1407" Canvas.Top="291" Width="5" Height="5" Fill="#90EAD9B0"/>
      <Ellipse Canvas.Left="1477" Canvas.Top="239" Width="6" Height="6" Fill="#D5EAD9B0"/>
      <Path Fill="#68F4E4C7" Data="M660,98 a2,2 0 1 0 4,0 a2,2 0 1 0 -4,0 M1050,180 a2,2 0 1 0 4,0 a2,2 0 1 0 -4,0 M1180,82 a2,2 0 1 0 4,0 a2,2 0 1 0 -4,0 M1780,356 a2,2 0 1 0 4,0 a2,2 0 1 0 -4,0 M94,460 a2,2 0 1 0 4,0 a2,2 0 1 0 -4,0"/>
      <Path Stroke="#45E0C4BB" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M86,1080 Q60,960 142,848 M86,1010 Q28,975 26,934 M95,960 Q149,960 178,911 M116,895 Q76,861 84,825 M1810,1080 Q1860,1000 1828,932 M1838,1024 Q1784,1003 1776,973 M1840,990 Q1880,978 1892,944"/>
     </Canvas>
    </Viewbox>
-   <Path Width="104" Height="104" Stretch="Uniform" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,60,80,0"
-    Fill="#FFF1CD" Data="M1640,110 A62,62 0 1 0 1718,188 A68,68 0 0 1 1640,110Z"/>
+   <Button x:Name="WishingStars" Style="{StaticResource SkyToy}" Width="240" Height="120" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="140,65,0,0"
+    KeyboardNavigation.TabIndex="1001" AutomationProperties.Name="Stars" Click="Stars_Click">
+    <Canvas Width="240" Height="120" IsHitTestVisible="False">
+     <Path x:Name="StarThread" Stroke="#EAD9B0" Opacity="0.22" StrokeThickness="1" Data="M20,52 L92,16 150,72 205,38"/>
+     <Path x:Name="StarOne" Canvas.Left="8" Canvas.Top="40" Fill="#EAD9B0" Opacity="0.8" Data="M12,0 L15,9 24,12 15,15 12,24 9,15 0,12 9,9Z" RenderTransformOrigin="0.5,0.5">
+      <Path.RenderTransform><TransformGroup><ScaleTransform/><RotateTransform/></TransformGroup></Path.RenderTransform>
+     </Path>
+     <Path x:Name="StarTwo" Canvas.Left="84" Canvas.Top="8" Fill="#EAD9B0" Opacity="0.8" Data="M8,0 L10,6 16,8 10,10 8,16 6,10 0,8 6,6Z" RenderTransformOrigin="0.5,0.5">
+      <Path.RenderTransform><TransformGroup><ScaleTransform/><RotateTransform/></TransformGroup></Path.RenderTransform>
+     </Path>
+     <Path x:Name="StarThree" Canvas.Left="138" Canvas.Top="60" Fill="#EAD9B0" Opacity="0.8" Data="M12,0 L15,9 24,12 15,15 12,24 9,15 0,12 9,9Z" RenderTransformOrigin="0.5,0.5">
+      <Path.RenderTransform><TransformGroup><ScaleTransform/><RotateTransform/></TransformGroup></Path.RenderTransform>
+     </Path>
+     <Path x:Name="StarFour" Canvas.Left="197" Canvas.Top="30" Fill="#EAD9B0" Opacity="0.8" Data="M8,0 L10,6 16,8 10,10 8,16 6,10 0,8 6,6Z" RenderTransformOrigin="0.5,0.5">
+      <Path.RenderTransform><TransformGroup><ScaleTransform/><RotateTransform/></TransformGroup></Path.RenderTransform>
+     </Path>
+    </Canvas>
+   </Button>
+   <Button x:Name="Moon" Style="{StaticResource SkyToy}" Width="144" Height="144" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,40,60,0"
+    KeyboardNavigation.TabIndex="1000" AutomationProperties.Name="Moon" Click="Moon_Click">
+    <Grid Width="144" Height="144" IsHitTestVisible="False">
+     <Ellipse x:Name="MoonHalo" Width="132" Height="132" Stroke="#F4DFAC" StrokeThickness="1" Opacity="0"/>
+     <Path x:Name="MoonGlyph" Width="104" Height="104" Stretch="Uniform" Fill="#FFF1CD"
+      Data="M1640,110 A62,62 0 1 0 1718,188 A68,68 0 0 1 1640,110Z" RenderTransformOrigin="0.5,0.5">
+      <Path.RenderTransform><TransformGroup><ScaleTransform/><RotateTransform/></TransformGroup></Path.RenderTransform>
+     </Path>
+    </Grid>
+   </Button>
+   <Canvas IsHitTestVisible="False">
+    <Canvas x:Name="ShootingStar" Width="160" Height="40" Opacity="0">
+     <Canvas.RenderTransform><TranslateTransform/></Canvas.RenderTransform>
+     <Path StrokeThickness="2" StrokeStartLineCap="Round" Data="M12,18 L145,0">
+      <Path.Stroke><LinearGradientBrush StartPoint="0,1" EndPoint="1,0"><GradientStop Color="#F4DFAC" Offset="0"/><GradientStop Color="#00F4DFAC" Offset="1"/></LinearGradientBrush></Path.Stroke>
+     </Path>
+     <Path Fill="#FFF1CD" Data="M12,6 L15,15 24,18 15,21 12,30 9,21 0,18 9,15Z"/>
+    </Canvas>
+   </Canvas>
   </Grid>
   <Grid Margin="48,48,48,36" x:Name="PlayRoom">
    <Grid.RowDefinitions><RowDefinition/><RowDefinition Height="Auto"/></Grid.RowDefinitions>

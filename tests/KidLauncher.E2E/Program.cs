@@ -182,7 +182,9 @@ namespace KidLauncher.E2E
             var room = Window(launcher, "KidLauncher");
             Ready(room, launcher);
             Check(FindNow(room, ControlType.Text, "Kies een avontuur") == null && FindNow(room, ControlType.Text, "SPELEN MAAR") == null &&
-                FindNow(room, ControlType.Button, "Vorige pagina")?.Current.IsOffscreen != false, "single-page launcher has only game tiles, without headings or page controls");
+                FindNow(room, ControlType.Button, "Vorige pagina")?.Current.IsOffscreen != false, "single-page launcher has no headings or page controls");
+            var moon = Find(room, ControlType.Button, negativeControl ? "Make a shooting star" : "Maak een vallende ster");
+            var stars = Find(room, ControlType.Button, negativeControl ? "Wake the stars" : "Maak de sterren wakker");
             Desktop.MovePointer(4, 4);
             Desktop.ClientAreaAnimation = false;
             Check(!Desktop.ClientAreaAnimation, "Windows reports that client-area animations are disabled");
@@ -193,6 +195,11 @@ namespace KidLauncher.E2E
             Check(File.ReadAllBytes(Path.Combine(output, "02-reduced-motion.png"))
                 .SequenceEqual(File.ReadAllBytes(Path.Combine(output, "02-reduced-motion-later.png"))),
                 "reduced-motion preference leaves the launcher completely still");
+            Click(moon); Click(stars); Desktop.MovePointer(4, 4);
+            Desktop.Capture(Path.Combine(output, "02-reduced-motion-interactions.png"));
+            Check(File.ReadAllBytes(Path.Combine(output, "02-reduced-motion.png"))
+                .SequenceEqual(File.ReadAllBytes(Path.Combine(output, "02-reduced-motion-interactions.png"))),
+                "hovering and clicking sky toys does not animate with reduced motion enabled");
             Desktop.ClientAreaAnimation = true;
             Thread.Sleep(400);
             Desktop.Capture(Path.Combine(output, "02-launcher-ready.png"));
@@ -203,6 +210,41 @@ namespace KidLauncher.E2E
                 "idle launcher remains still even when Windows animations are enabled");
             using (new DesktopRecording(Path.Combine(output, "motion-frames"), 30))
             {
+                // Compare sky regions away from the pointer. A working hover alone
+                // cannot pass the moon's click test: its star must cross open sky.
+                Func<string, System.Windows.Rect, int> changedSkyPixels = (name, bounds) =>
+                {
+                    var screen = System.Windows.Forms.SystemInformation.VirtualScreen;
+                    using (var before = new System.Drawing.Bitmap(Path.Combine(output, "02-launcher-ready.png")))
+                    using (var after = new System.Drawing.Bitmap(Path.Combine(output, name)))
+                    {
+                        int changed = 0;
+                        for (int y = (int)bounds.Top; y < bounds.Bottom; y++)
+                            for (int x = (int)bounds.Left; x < bounds.Right; x++)
+                                if (before.GetPixel(x - screen.Left, y - screen.Top) != after.GetPixel(x - screen.Left, y - screen.Top)) changed++;
+                        return changed;
+                    }
+                };
+                var moonBounds = moon.Current.BoundingRectangle;
+                var starsBounds = stars.Current.BoundingRectangle;
+                Move(moon); Thread.Sleep(350);
+                Click(moon); Desktop.MovePointer(4, 4); Thread.Sleep(60);
+                Desktop.Capture(Path.Combine(output, "02-shooting-star.png"));
+                var openSky = new System.Windows.Rect(moonBounds.Left - moonBounds.Width * 2.5, moonBounds.Top,
+                    moonBounds.Width * 2.5, moonBounds.Height);
+                Check(changedSkyPixels("02-shooting-star.png", openSky) > 25, "clicking the moon sends a visible shooting star through open sky");
+                Thread.Sleep(900);
+                Move(stars); Desktop.MovePointer(4, 4); Thread.Sleep(60);
+                Desktop.Capture(Path.Combine(output, "02-awakened-stars.png"));
+                Check(changedSkyPixels("02-awakened-stars.png", starsBounds) > 25, "hovering the constellation visibly wakes its stars");
+                Click(stars); Thread.Sleep(150); Click(stars);
+                Desktop.MovePointer(4, 4); Thread.Sleep(1300);
+                Desktop.Capture(Path.Combine(output, "02-sky-settled.png"));
+                Check(moon.Current.BoundingRectangle == moonBounds && stars.Current.BoundingRectangle == starsBounds,
+                    "sky interactions keep their click targets fixed");
+                Check(File.ReadAllBytes(Path.Combine(output, "02-launcher-ready.png"))
+                    .SequenceEqual(File.ReadAllBytes(Path.Combine(output, "02-sky-settled.png"))),
+                    "repeated sky interactions finish and return the whole launcher to its identical idle scene");
                 Move(Find(room, ControlType.Button, Cooperative)); Thread.Sleep(350);
                 Move(Find(room, ControlType.Button, Stubborn)); Thread.Sleep(350);
                 Move(Find(room, ControlType.Button, Missing)); Thread.Sleep(350);
