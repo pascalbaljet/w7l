@@ -30,7 +30,7 @@ The positive journey installs the actual Setup executable into a disposable dire
 
 `scripts/installer-test.ps1` checks fresh installation and an update over existing configuration, recovery state, logs, artwork, disc images, backups, and unrelated files. It compares their SHA-256 hashes and checks that an old application binary gets replaced. It also exercises the real Setup window. Run it on an elevated, unlocked Windows desktop. CI retains screenshots and a recording in **Installer-evidence**.
 
-Windows CI runs these tests after the regression tests and WPF render checks. Download **Windows-E2E-evidence** from the workflow run for screenshots, desktop recordings, fixture events, and application logs. The tests do not switch display modes or mount disc images. Windows 7, real games, elevation, and Virtual CloneDrive still require the [real-machine checklist](docs/testing.md).
+Windows CI runs these tests after the regression tests and WPF render checks. Download **Windows-E2E-evidence** from the workflow run for screenshots, desktop recordings, fixture events, and application logs. The positive test selects a driver mode, checks that scrolling does not change it, and verifies the game's actual starting resolution and desktop restoration. It prefers 640×480 when the driver offers it. These tests temporarily change display modes but do not mount disc images. Windows 7, real games, elevation, and Virtual CloneDrive still require the [real-machine checklist](docs/testing.md).
 
 ## Project layout
 

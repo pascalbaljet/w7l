@@ -22,7 +22,7 @@ namespace KidLauncher.Tests
                 DisabledForceExitKeepsResources, UnknownPriorImageDoesNotChangeDisc, WindowsProcessIdentity,
                 FutureSchemaCannotBeOverwritten, PreviousDiscRecoveryIsIdempotent, RecoveryFindsUnrecordedChild,
                 ReportingFailureDoesNotLockSession, UncertainStartRequiresAdultRecovery, SelectedProcessNamesLeaveHelpersAlone,
-                WindowsShortcutLaunch };
+                WindowsShortcutLaunch, WindowsDisplayRejectsMismatchedNativeMode };
             int failed = 0;
             foreach (var test in tests)
             {
@@ -105,6 +105,17 @@ namespace KidLauncher.Tests
             Assert(a.PinHash != b.PinHash && a.PinSalt != b.PinSalt, "PINs are not salted.");
             Assert(PinSecurity.VerifyPin(a, "6914") && !PinSecurity.VerifyPin(a, "6915"), "PIN verification incorrect.");
             Assert(!PinSecurity.VerifyPin(new ControlSettings(), ""), "Unset PIN allows adult access.");
+        }
+        private static void WindowsDisplayRejectsMismatchedNativeMode()
+        {
+            var display = new WindowsDisplayService();
+            var original = display.Capture();
+            var requested = new DisplayMode { Width = original.Width == 640 ? 800 : 640, Height = 480,
+                BitsPerPixel = original.BitsPerPixel, Frequency = original.Frequency, NativeData = original.NativeData };
+            Throws(() => display.Apply(requested));
+            var actual = display.Capture();
+            Assert(actual.Width == original.Width && actual.Height == original.Height,
+                "A mismatched saved mode must be rejected before changing the display.");
         }
         private static void ForcedExitAndChildHandoff()
         {
@@ -292,6 +303,10 @@ namespace KidLauncher.Tests
                 File.WriteAllText(f.RecoveryPath, new JavaScriptSerializer().Serialize(new RecoverySession {
                     OriginalDisplay = f.Display.Capture(), Disc = f.Game.Disc, DiscChanged = true, PreviousImage = "previous.iso"
                 }));
+                Throws(() => Complete(f.Session.RecoverAsync()));
+                Assert(f.Disc.Mounted == "different.iso" && f.Disc.Mounts == 0 && File.Exists(f.RecoveryPath),
+                    "Previous-image recovery must preserve media replaced outside the session.");
+                f.Disc.Mounted = f.Game.Disc.ImagePath;
                 f.Display.FailApply = true;
                 Throws(() => Complete(f.Session.RecoverAsync()));
                 f.Display.FailApply = false; Complete(f.Session.RecoverAsync());

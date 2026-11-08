@@ -238,10 +238,14 @@ namespace KidLauncher.Core
                     {
                         var previousDisc = new DiscSettings {
                             Enabled = true, ImagePath = session.PreviousImage, VirtualDriveIndex = session.Disc.VirtualDriveIndex,
-                            ExpectedDriveLetter = session.Disc.ExpectedDriveLetter, MountTimeoutMs = session.Disc.MountTimeoutMs
+                            ExpectedDriveLetter = session.Disc.ExpectedDriveLetter, MountTimeoutMs = session.Disc.MountTimeoutMs,
+                            RestorePreviousImage = true
                         };
                         if (!string.Equals(discs.GetMountedImage(session.Disc), session.PreviousImage, StringComparison.OrdinalIgnoreCase))
                         {
+                            // Automatic cleanup has no authority to replace external
+                            // media. Verify/eject our own image before restoring.
+                            await discs.UnmountAsync(session.Disc, CancellationToken.None);
                             await discs.MountAsync(previousDisc, session.PreviousImage, CancellationToken.None);
                         }
                         await discs.WaitReadyAsync(previousDisc, CancellationToken.None);

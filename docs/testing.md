@@ -20,6 +20,7 @@ Start with a disposable game or a game with saved progress backed up. Keep a key
 
 ## Game and process lifecycle
 
+- [ ] Selecting 640×480, closing the resolution dropdown, and scrolling over it leaves 640×480 selected and scrolls the editor instead.
 - [ ] A game without a disc launches at its configured supported resolution.
 - [ ] One short F6 press returns from a cooperative game and restores the exact prior display mode.
 - [ ] One short F6 press closes an unresponsive tracked game after the force-exit timeout.
@@ -30,6 +31,7 @@ Start with a disposable game or a game with saved progress backed up. Keep a key
 - [ ] A missing executable and a rejected display mode show a recoverable error.
 - [ ] Resolution-test countdown always restores the previous mode, including after closing the dialog.
 - [ ] An elevated game is tested separately. Record any privilege or hotkey limitation.
+- [ ] The log records the requested mode, actual mode before and after process start, and the input source when F6 is received.
 - [ ] The configurator cannot start another game test while the launcher owns an active session.
 
 ## Disc lifecycle
@@ -42,6 +44,7 @@ Start with a disposable game or a game with saved progress backed up. Keep a key
 - [ ] Cleanup waits until all tracked game processes have exited.
 - [ ] Unmount and previous-image restoration follow the chosen settings.
 - [ ] Other Virtual CloneDrive units and unrelated mounted images remain unchanged.
+- [ ] The log identifies a storage or CDROM query that returns a four-byte media-change counter. Ejecting and reinserting the same image changes that counter.
 
 ## Recovery
 

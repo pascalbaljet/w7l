@@ -276,7 +276,7 @@ namespace KidLauncher.Core
         private sealed class MediaIdentity
         {
             public string Device, Boot, Volume;
-            public uint Generation;
+            public uint Generation, GenerationSource;
         }
 
         private string KnownImage(DiscSettings disc)
@@ -292,9 +292,11 @@ namespace KidLauncher.Core
                 var root = document.DocumentElement;
                 if (root == null || root.Name != "vcd" || root.GetAttribute("version") != "1" || root.GetAttribute("unit") != unit.ToString(System.Globalization.CultureInfo.InvariantCulture)) return null;
                 if (!string.Equals(Letter(disc), root.GetAttribute("letter"), StringComparison.OrdinalIgnoreCase)) return null;
-                var current = ReadMedia(disc);
-                uint generation;
+                uint generation, source = 0x002D0800; // Version-1 journals used CHECK_VERIFY2 only.
+                if (root.HasAttribute("generationSource") && !uint.TryParse(root.GetAttribute("generationSource"), out source)) return null;
+                var current = ReadMedia(disc, source);
                 if (!uint.TryParse(root.GetAttribute("generation"), out generation) || generation != current.Generation ||
+                    source != current.GenerationSource ||
                     !string.Equals(root.GetAttribute("device"), current.Device, StringComparison.OrdinalIgnoreCase) ||
                     root.GetAttribute("boot") != current.Boot || root.GetAttribute("volume") != current.Volume) return null;
                 string image = root.GetAttribute("image");
@@ -327,6 +329,7 @@ namespace KidLauncher.Core
                         writer.WriteAttributeString("boot", media.Boot);
                         writer.WriteAttributeString("volume", media.Volume);
                         writer.WriteAttributeString("generation", media.Generation.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                        writer.WriteAttributeString("generationSource", media.GenerationSource.ToString(System.Globalization.CultureInfo.InvariantCulture));
                         writer.WriteEndElement();
                     }
                     stream.Flush(true);
@@ -340,7 +343,7 @@ namespace KidLauncher.Core
         private string JournalPath(int unit) { return Path.Combine(stateDirectory, "vcd-unit-" + unit + ".xml"); }
         private void DeleteJournal(int unit) { string path = JournalPath(unit); if (File.Exists(path)) File.Delete(path); }
 
-        private static MediaIdentity ReadMedia(DiscSettings disc)
+        private MediaIdentity ReadMedia(DiscSettings disc, uint requiredSource = 0)
         {
             string device = null;
             using (var search = new ManagementObjectSearcher("SELECT Drive,PNPDeviceID FROM Win32_CDROMDrive"))
@@ -355,34 +358,59 @@ namespace KidLauncher.Core
                 foreach (ManagementObject item in systems)
                     using (item) boot = item["LastBootUpTime"] as string;
             if (string.IsNullOrEmpty(boot)) throw new InvalidOperationException("Cannot verify the current Windows boot session; the VCD journal is not trusted.");
-            uint generation = MediaGeneration(disc);
+            uint source;
+            uint generation = MediaGeneration(disc, out source, requiredSource);
             var label = new StringBuilder(261);
             var fileSystem = new StringBuilder(261);
             uint serial, maxComponent, flags;
             if (!GetVolumeInformation(Letter(disc) + @"\", label, label.Capacity, out serial, out maxComponent, out flags, fileSystem, fileSystem.Capacity))
                 throw new Win32Exception(Marshal.GetLastWin32Error(), "Cannot read the VCD volume identity.");
-            uint after = MediaGeneration(disc);
+            uint afterSource;
+            uint after = MediaGeneration(disc, out afterSource, source);
             if (after != generation) throw new InvalidOperationException("The VCD media changed while checking its identity.");
-            return new MediaIdentity { Device = device, Boot = boot, Generation = generation,
+            return new MediaIdentity { Device = device, Boot = boot, Generation = generation, GenerationSource = source,
                 Volume = serial.ToString("X8") + "|" + label + "|" + fileSystem };
         }
 
-        private static uint MediaGeneration(DiscSettings disc)
+        private uint MediaGeneration(DiscSettings disc, out uint source, uint requiredSource = 0)
         {
-            using (var handle = CreateFile(@"\\.\" + Letter(disc), 0, 3, IntPtr.Zero, 3, 0, IntPtr.Zero))
+            // VERIFY2 requires FILE_READ_ATTRIBUTES. The older STORAGE and CDROM
+            // requests require read access and can take a different driver path.
+            // Never interpret success with zero output bytes as a counter.
+            var requests = new[] {
+                new { Name = "IOCTL_STORAGE_CHECK_VERIFY2", Code = 0x002D0800u, Access = 0x80u },
+                new { Name = "IOCTL_STORAGE_CHECK_VERIFY", Code = 0x002D4800u, Access = 0x80000000u },
+                new { Name = "IOCTL_CDROM_CHECK_VERIFY", Code = 0x00024800u, Access = 0x80000000u }
+            };
+            var diagnostics = new StringBuilder();
+            foreach (var request in requests)
             {
-                if (handle.IsInvalid) throw new Win32Exception(Marshal.GetLastWin32Error(), "Cannot open VCD to verify its media generation.");
-                var data = Marshal.AllocHGlobal(4);
-                try
+                if (requiredSource != 0 && request.Code != requiredSource) continue;
+                using (var handle = CreateFile(@"\\.\" + Letter(disc), request.Access, 3, IntPtr.Zero, 3, 0, IntPtr.Zero))
                 {
-                    int returned;
-                    if (!DeviceIoControl(handle, 0x002D0800, IntPtr.Zero, 0, data, 4, out returned, IntPtr.Zero))
-                        throw new Win32Exception(Marshal.GetLastWin32Error(), "The VCD media generation could not be read.");
-                    if (returned != 4) throw new InvalidOperationException("This VCD driver does not expose a media-change counter. Automatic reuse/cleanup cannot be promised; use manual eject.");
-                    return unchecked((uint)Marshal.ReadInt32(data));
+                    if (handle.IsInvalid)
+                    {
+                        diagnostics.Append(request.Name).Append(" open error ").Append(Marshal.GetLastWin32Error()).Append("; ");
+                        continue;
+                    }
+                    var data = Marshal.AllocHGlobal(4);
+                    try
+                    {
+                        int returned;
+                        bool success = DeviceIoControl(handle, request.Code, IntPtr.Zero, 0, data, 4, out returned, IntPtr.Zero);
+                        int error = success ? 0 : Marshal.GetLastWin32Error();
+                        log.Write("VCD " + Letter(disc) + " " + request.Name + ": success=" + success + ", bytes=" + returned + ", error=" + error);
+                        if (success && returned == 4)
+                        {
+                            source = request.Code;
+                            return unchecked((uint)Marshal.ReadInt32(data));
+                        }
+                        diagnostics.Append(request.Name).Append(" success=").Append(success).Append(" bytes=").Append(returned).Append(" error=").Append(error).Append("; ");
+                    }
+                    finally { Marshal.FreeHGlobal(data); }
                 }
-                finally { Marshal.FreeHGlobal(data); }
             }
+            throw new InvalidOperationException("The VCD driver did not provide a verifiable media-change counter through the supported storage/CDROM queries. " + diagnostics + " Keep the log for diagnosis; no unverified cleanup is authorized.");
         }
         private static int Timeout(DiscSettings disc)
         {
