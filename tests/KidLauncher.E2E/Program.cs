@@ -292,10 +292,13 @@ namespace KidLauncher.E2E
             Desktop.Capture(Path.Combine(output, "00-numbered-display-test.png"));
             Invoke(displayTest, "Looks good — restore now");
             Until(() => Desktop.DisplayMode() == mode, "display tester restores the original mode");
-            string displayLog = File.ReadAllText(Path.Combine(app, "Data", "Logs", "launcher.log"));
-            Check(displayLog.Contains("Display test requested: " + selectedMode + "; enumeration index=" + resolution["EnumerationIndex"]) &&
-                displayLog.Contains("native DEVMODE base64=") && displayLog.Contains("Display test actual:") &&
-                displayLog.Contains("Display test restored:"), "display test logs selected native variant, actual mode and restoration");
+            Until(() =>
+            {
+                string displayLog = File.ReadAllText(Path.Combine(app, "Data", "Logs", "launcher.log"));
+                return displayLog.Contains("Display test requested: " + selectedMode + "; enumeration index=" + resolution["EnumerationIndex"]) &&
+                    displayLog.Contains("native DEVMODE base64=") && displayLog.Contains("Display test actual:") &&
+                    displayLog.Contains("Display test restored:");
+            }, "display test logs selected native variant, actual mode and restoration");
             Invoke(settings, "▶ Test game (F6 exits)");
             Until(() => File.Exists(events) && File.ReadAllLines(events).Any(l => l.StartsWith("START ")), "configurator test game starts");
             int pid = int.Parse(File.ReadAllLines(events).Single(l => l.StartsWith("START ")).Substring(6));
