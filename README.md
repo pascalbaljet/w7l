@@ -12,7 +12,9 @@ For a portable installation, download the release ZIP, for example `KidLauncher-
 
 The children's launcher defaults to Dutch. To select English, open **General → Children's launcher language** in the configurator, save, and reopen the launcher. The configurator stays in English.
 
-The game grid has a large pointer and gentle hover zoom, without headings or page text. Page arrows appear only when needed. Press **Ctrl+Alt+S**, then choose **Exit launcher to Windows** to close it. If a PIN is configured, enter it first. Without a PIN, the adult menu opens directly.
+The game grid centers the available cards against a still, moonlit backdrop, without headings or page text. Cards have cream frames and a brief lift and glint on hover or keyboard focus. Executable icons stay at their native size instead of stretching across a card. A configured wallpaper replaces the backdrop decorations. Motion follows the Windows animation preference, and the launcher stays still while idle. Page arrows appear only when needed.
+
+Press **Ctrl+Alt+S**, then choose **Exit launcher to Windows** to close it. If a PIN is configured, enter it first. Without a PIN, the adult menu opens directly.
 
 Read the [deployment guide](docs/deployment.md) before testing with installed games. Windows CI compilation and automated tests do not establish Windows 7, fullscreen-game, or Virtual CloneDrive compatibility. Use the [real-machine checklist](docs/testing.md) to record those results.
 

@@ -14,6 +14,8 @@ Start with a disposable game or a game with saved progress backed up. Keep a key
 - [ ] Thirteen games produce another page. Arrows and mouse wheel work, and the page is preserved after playing.
 - [ ] Idle cursor hiding and immediate return on mouse movement work.
 - [ ] The pointer is large over every tile. Hover gently enlarges one tile without moving its neighbors and reverses when the pointer leaves.
+- [ ] Click a tile, exit the game with F6, and move the pointer away. The card returns to rest and responds to another hover.
+- [ ] A partially filled page centers its cards. The launcher stays still while idle, including with Windows animations enabled.
 - [ ] The game grid has no decorative headings or page text. Page arrows appear only for multiple pages.
 - [ ] Ctrl+Alt+S requires the correct PIN when configured. Without a PIN, it opens the adult menu and permits exit to Windows.
 - [ ] Import previews user and public Desktop shortcuts, including arguments and working directory. Only selected shortcuts are imported.

@@ -3,7 +3,7 @@
  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
  Title="KidLauncher" WindowStyle="None" ResizeMode="NoResize"
  WindowState="Maximized" WindowStartupLocation="CenterScreen" Background="#14233B"
- ShowInTaskbar="False" FontFamily="Segoe UI" Foreground="White" UseLayoutRounding="True">
+ ShowInTaskbar="False" FontFamily="Segoe UI" Foreground="White" UseLayoutRounding="True" Focusable="True">
  <Grid x:Name="Backdrop">
   <Grid x:Name="BackdropAccents" IsHitTestVisible="False" ClipToBounds="True">
    <Rectangle>
@@ -14,7 +14,6 @@
      <!-- Still, resolution-independent scenery; no render loop, blur or particle field. -->
      <Path Fill="#13C5B2D8" Data="M0,890 Q290,680 620,880 Q960,1040 1230,830 Q1580,620 1920,820 L1920,1080 L0,1080Z"/>
      <Path Fill="#16332753" Data="M0,1000 Q340,790 740,980 Q1130,1130 1500,910 Q1720,800 1920,970 L1920,1080 L0,1080Z"/>
-     <Path Fill="#FFF1CD" Data="M1640,110 A62,62 0 1 0 1718,188 A68,68 0 0 1 1640,110Z"/>
      <Path Stroke="#37EAD9B0" StrokeThickness="1" Data="M228,166 L326,116 408,184 468,146 M1410,294 L1480,242 1512,314"/>
      <Path Fill="#BDEAD9B0" Data="M225,161 L228,151 231,161 241,164 231,167 228,177 225,167 215,164Z M405,181 L408,171 411,181 421,184 411,187 408,197 405,187 395,184Z M1509,311 L1512,301 1515,311 1525,314 1515,317 1512,327 1509,317 1499,314Z"/>
      <Ellipse Canvas.Left="323" Canvas.Top="113" Width="6" Height="6" Fill="#D5EAD9B0"/>
@@ -25,6 +24,8 @@
      <Path Stroke="#45E0C4BB" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M86,1080 Q60,960 142,848 M86,1010 Q28,975 26,934 M95,960 Q149,960 178,911 M116,895 Q76,861 84,825 M1810,1080 Q1860,1000 1828,932 M1838,1024 Q1784,1003 1776,973 M1840,990 Q1880,978 1892,944"/>
     </Canvas>
    </Viewbox>
+   <Path Width="104" Height="104" Stretch="Uniform" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,60,80,0"
+    Fill="#FFF1CD" Data="M1640,110 A62,62 0 1 0 1718,188 A68,68 0 0 1 1640,110Z"/>
   </Grid>
   <Grid Margin="48,48,48,36" x:Name="PlayRoom">
    <Grid.RowDefinitions><RowDefinition/><RowDefinition Height="Auto"/></Grid.RowDefinitions>

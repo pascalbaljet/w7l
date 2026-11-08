@@ -380,6 +380,10 @@ namespace KidLauncher
             Topmost = true;
             Activate();
             SetForegroundWindow(new WindowInteropHelper(this).Handle);
+            // A clicked tile retains logical focus while its game owns the desktop.
+            // Return focus to the room so keyboard-focus feedback cannot pin its hover.
+            Keyboard.Focus(this);
+            Mouse.Synchronize();
             lastMove = DateTime.UtcNow;
             Mouse.OverrideCursor = null;
         }
