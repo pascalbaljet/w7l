@@ -6,9 +6,9 @@ The launcher provides large game tiles, temporary resolution changes, Virtual Cl
 
 ## Get a Windows build
 
-Download `KidLauncher-Setup-win7-x86.exe` from [GitHub Releases](https://github.com/pascalbaljet/w7l/releases). Setup installs to `C:\Games\KidLauncher` and requests administrator permission. Updates replace application files without replacing existing configuration, data, logs, artwork, or disc images. Close both applications before updating. Start the installed applications yourself after Setup closes.
+Download the Setup executable from [GitHub Releases](https://github.com/pascalbaljet/w7l/releases). New releases include the version in the filename, for example `KidLauncher-Setup-v0.3.5-win7-x86.exe`. Setup installs to `C:\Games\KidLauncher` and requests administrator permission. Updates replace application files without replacing existing configuration, data, logs, artwork, or disc images. Close both applications before updating. Start the installed applications yourself after Setup closes.
 
-For a portable installation, download `KidLauncher-win7-x86.zip` instead and extract it into a writable folder. CI builds are also available from the latest successful **Windows build** run in [GitHub Actions](https://github.com/pascalbaljet/w7l/actions/workflows/windows.yml).
+For a portable installation, download the release ZIP, for example `KidLauncher-v0.3.5-win7-x86.zip`, and extract it into a writable folder. Older releases and CI builds use filenames without a version. CI builds are available from the latest successful **Windows build** run in [GitHub Actions](https://github.com/pascalbaljet/w7l/actions/workflows/windows.yml).
 
 The children's launcher defaults to Dutch. To select English, open **General → Children's launcher language** in the configurator, save, and reopen the launcher. The configurator stays in English.
 
@@ -21,6 +21,8 @@ Read the [deployment guide](docs/deployment.md) before testing with installed ga
 On Windows, install the .NET 8 SDK and the .NET Framework 4.8 Developer Pack. Visual Studio 2022 Build Tools with the .NET desktop workload also supplies the framework reference assemblies. The SDK is a build tool, not the application runtime.
 
 Run `scripts/build.ps1` from PowerShell. The script builds the solution, runs the dependency-free .NET Framework test executable, and creates `artifacts/KidLauncher-win7-x86.zip`. It then embeds that ZIP in `artifacts/KidLauncher-Setup-win7-x86.exe`. A failed build or test stops packaging.
+
+Before publishing a release, place the tested CI installer and ZIP at those paths and run `scripts/package-release.ps1 -Version v0.3.5` with the intended release tag. Upload the files in `artifacts/releases/v0.3.5/`. The script copies the binaries without rebuilding and generates `SHA256SUMS-v0.3.5.txt` for the versioned filenames.
 
 The solution also compiles against framework reference assemblies in a Linux orb. Application execution and WPF rendering require Windows. `.agents/setup` installs the pinned compiler SDK and restores solution references in Amp orbs. `.agents/resume` performs no installs.
 

@@ -12,7 +12,7 @@ The target computer does not need Visual Studio, the .NET SDK, Node.js, Python, 
 
 ## Install or update KidLauncher
 
-1. Download `KidLauncher-Setup-win7-x86.exe` from [GitHub Releases](https://github.com/pascalbaljet/w7l/releases).
+1. Download the Setup executable from [GitHub Releases](https://github.com/pascalbaljet/w7l/releases). New releases include the version in the filename, for example `KidLauncher-Setup-v0.3.5-win7-x86.exe`. Older releases use `KidLauncher-Setup-win7-x86.exe`.
 2. Close KidLauncher and its configurator.
 3. Run Setup and accept the administrator prompt.
 4. Click **Install / Update** to install to `C:\Games\KidLauncher`.
