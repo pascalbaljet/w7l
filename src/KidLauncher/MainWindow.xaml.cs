@@ -55,7 +55,13 @@ namespace KidLauncher
             this.store = store;
             this.log = log;
             this.smokeTest = smokeTest;
-            Overlay.IsVisibleChanged += (s, e) => AnimateOverlayStar();
+            Magic.Animate = Constellations.Animate = !smokeTest;
+            Overlay.IsVisibleChanged += (s, e) =>
+            {
+                Constellations.IsEnabled = !Overlay.IsVisible && !adultOpen;
+                Magic.IsEnabled = !adultOpen && (!Overlay.IsVisible || ReturnButton.Visibility != Visibility.Visible);
+                AnimateOverlayStar();
+            };
             SourceInitialized += (s, e) => { Topmost = true; };
             Loaded += async (s, e) =>
             {
@@ -73,7 +79,11 @@ namespace KidLauncher
             Closing += OnClosing;
             Closed += (s, e) => { childCursor.Dispose(); Application.Current.Shutdown(); };
             PreviewKeyDown += OnKeyDown;
-            PreviewMouseMove += (s, e) => { lastMove = DateTime.UtcNow; Mouse.OverrideCursor = null; };
+            PreviewMouseMove += (s, e) =>
+            {
+                lastMove = DateTime.UtcNow; Mouse.OverrideCursor = null;
+                if (!OperationActive && !adultOpen && !Overlay.IsVisible) Magic.Trail(e.GetPosition(Magic));
+            };
             PreviewMouseWheel += (s, e) =>
             {
                 if (DateTime.UtcNow - lastWheel < TimeSpan.FromMilliseconds(350)) return;
@@ -177,6 +187,13 @@ namespace KidLauncher
             Tiles.Children.Clear();
             foreach (var game in games.Skip(page * pageSize).Take(pageSize)) Tiles.Children.Add(CreateTile(game));
             AnimateValue(Tiles, UIElement.OpacityProperty, 1, 300, MotionEnabled ? 0.86 : 1);
+            if (MotionEnabled)
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    if (Overlay.IsVisible || adultOpen || !IsVisible) return;
+                    foreach (var tile in Tiles.Children.OfType<Button>().Take(Tiles.Columns))
+                        Magic.Burst(tile.TranslatePoint(new Point(tile.ActualWidth / 2, 8), Magic), 16);
+                }), DispatcherPriority.Loaded);
             Previous.IsEnabled = page > 0;
             Next.IsEnabled = page < count - 1;
             Navigation.Visibility = count > 1 ? Visibility.Visible : Visibility.Collapsed;
@@ -213,23 +230,27 @@ namespace KidLauncher
             transforms.Children.Add(lift);
             var visual = new Grid { IsHitTestVisible = false, RenderTransformOrigin = new Point(0.5, 0.5), RenderTransform = transforms };
             var radius = new CornerRadius(Math.Max(0, config.Appearance.CornerRadius));
-            visual.Children.Add(new Border { Background = brush, CornerRadius = radius, Child = layout });
+            visual.Children.Add(new Border
+            {
+                Background = brush, CornerRadius = radius, Child = layout,
+                BorderThickness = new Thickness(2),
+                BorderBrush = new LinearGradientBrush(Color.FromArgb(150, 255, 222, 145), Color.FromArgb(80, 217, 172, 255), 55)
+            });
             var glow = new Border
             {
                 CornerRadius = radius, Opacity = 0,
                 Background = new LinearGradientBrush(Color.FromArgb(70, 255, 239, 183), Colors.Transparent, 70)
             };
             visual.Children.Add(glow);
-            var ring = new Border { CornerRadius = radius, BorderBrush = new SolidColorBrush(Color.FromRgb(255, 220, 139)), BorderThickness = new Thickness(3), Opacity = 0 };
+            var ring = new Border { CornerRadius = radius, BorderBrush = new SolidColorBrush(Color.FromRgb(255, 220, 139)), BorderThickness = new Thickness(3), Opacity = 0.18 };
             visual.Children.Add(ring);
-            var sparkleLift = new TranslateTransform();
-            var sparkle = new TextBlock
-            {
-                Text = "✦", FontSize = 30, Foreground = new SolidColorBrush(Color.FromRgb(255, 232, 164)),
-                HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top,
-                Margin = new Thickness(0, 10, 16, 0), Opacity = 0, RenderTransform = sparkleLift
-            };
-            visual.Children.Add(sparkle);
+            var sweep = new TranslateTransform();
+            var sheenBrush = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(1, 0.6), RelativeTransform = sweep };
+            sheenBrush.GradientStops.Add(new GradientStop(Colors.Transparent, 0.25));
+            sheenBrush.GradientStops.Add(new GradientStop(Color.FromArgb(110, 255, 244, 208), 0.5));
+            sheenBrush.GradientStops.Add(new GradientStop(Colors.Transparent, 0.75));
+            var sheen = new Border { CornerRadius = radius, Background = sheenBrush, Opacity = 0 };
+            visual.Children.Add(sheen);
             var button = new Button
             {
                 Content = visual, Background = Brushes.Transparent, Padding = new Thickness(0),
@@ -254,12 +275,14 @@ namespace KidLauncher
             Action twinkle = () =>
             {
                 if (!MotionEnabled || !button.IsEnabled) return;
-                var flash = new DoubleAnimationUsingKeyFrames { Duration = TimeSpan.FromMilliseconds(540), FillBehavior = FillBehavior.Stop };
+                for (int i = 1; i <= 3; i++)
+                    Magic.Burst(button.TranslatePoint(new Point(button.ActualWidth * i / 4, 12), Magic), 12);
+                var flash = new DoubleAnimationUsingKeyFrames { Duration = TimeSpan.FromMilliseconds(850), FillBehavior = FillBehavior.Stop };
                 flash.KeyFrames.Add(new LinearDoubleKeyFrame(0, KeyTime.FromPercent(0)));
-                flash.KeyFrames.Add(new EasingDoubleKeyFrame(0.95, KeyTime.FromPercent(0.22), new QuadraticEase { EasingMode = EasingMode.EaseOut }));
+                flash.KeyFrames.Add(new EasingDoubleKeyFrame(0.8, KeyTime.FromPercent(0.22), new QuadraticEase { EasingMode = EasingMode.EaseOut }));
                 flash.KeyFrames.Add(new EasingDoubleKeyFrame(0, KeyTime.FromPercent(1), new QuadraticEase { EasingMode = EasingMode.EaseIn }));
-                sparkle.BeginAnimation(UIElement.OpacityProperty, flash);
-                AnimateValue(sparkleLift, TranslateTransform.YProperty, -8, 540, 3);
+                sheen.BeginAnimation(UIElement.OpacityProperty, flash);
+                AnimateValue(sweep, TranslateTransform.XProperty, 1, 850, -1);
             };
             bool highlighted = false;
             Action updateFeedback = () =>
@@ -271,9 +294,9 @@ namespace KidLauncher
                 AnimateValue(scale, ScaleTransform.ScaleYProperty, active ? 1.03 : 1, active ? 260 : 180, spring: active);
                 AnimateValue(lift, TranslateTransform.YProperty, active ? -3 : 0, active ? 260 : 180, spring: active);
                 AnimateValue(glow, UIElement.OpacityProperty, active ? 1 : 0, 180);
-                AnimateValue(ring, UIElement.OpacityProperty, active ? 1 : 0, 180);
+                AnimateValue(ring, UIElement.OpacityProperty, active ? 1 : 0.18, 180);
                 Panel.SetZIndex(button, active ? 1 : 0);
-                if (!button.IsEnabled) sparkle.BeginAnimation(UIElement.OpacityProperty, null);
+                if (!button.IsEnabled) sheen.BeginAnimation(UIElement.OpacityProperty, null);
             };
             button.MouseEnter += (s, e) => updateFeedback();
             button.MouseLeave += (s, e) => updateFeedback();
@@ -367,6 +390,14 @@ namespace KidLauncher
             ReturnButton.Visibility = canReturn ? Visibility.Visible : Visibility.Collapsed;
             Overlay.Visibility = Visibility.Visible;
             AnimateOverlayStar();
+            Magic.IsEnabled = !canReturn && !adultOpen;
+            if (!canReturn && MotionEnabled && !adultOpen)
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    if (!Overlay.IsVisible || ReturnButton.Visibility == Visibility.Visible || adultOpen) return;
+                    var center = OverlaySymbol.TranslatePoint(new Point(OverlaySymbol.ActualWidth / 2, OverlaySymbol.ActualHeight / 2), Magic);
+                    Magic.Burst(center, 64);
+                }), DispatcherPriority.Render);
             Mouse.OverrideCursor = null;
         }
 
@@ -504,6 +535,7 @@ namespace KidLauncher
         private async Task OpenAdultAsync()
         {
             adultOpen = true;
+            Magic.IsEnabled = Constellations.IsEnabled = false;
             Mouse.OverrideCursor = null;
             try
             {
@@ -566,7 +598,12 @@ namespace KidLauncher
                     finally { busy = false; BringBack(); }
                 }
             }
-            finally { adultOpen = false; lastMove = DateTime.UtcNow; }
+            finally
+            {
+                adultOpen = false; lastMove = DateTime.UtcNow;
+                Constellations.IsEnabled = !Overlay.IsVisible;
+                Magic.IsEnabled = !Overlay.IsVisible || ReturnButton.Visibility != Visibility.Visible;
+            }
         }
 
         private bool VerifyAdultPin()
