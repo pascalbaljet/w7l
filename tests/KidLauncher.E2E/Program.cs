@@ -269,7 +269,8 @@ namespace KidLauncher.E2E
                 // displaced fireflies, and moved stars differ by far more than 48 levels.
                 Check(changedPixels("02-launcher-ready.png", "02-sky-settled.png", room.Current.BoundingRectangle, 48) == 0,
                     "the settled launcher returns to its resting scene");
-                for (int i = 0; i < 10 && !moon.Current.HasKeyboardFocus; i++) Desktop.Key(0x09);
+                // Let WPF move focus before reading it, or the loop can Tab past the moon.
+                for (int i = 0; i < 10 && !moon.Current.HasKeyboardFocus; i++) { Desktop.Key(0x09); Thread.Sleep(150); }
                 Check(moon.Current.HasKeyboardFocus, "the moon is reachable with Tab navigation");
                 Thread.Sleep(750);
                 Desktop.Capture(Path.Combine(output, "02-moon-keyboard-focus.png"));
@@ -277,9 +278,9 @@ namespace KidLauncher.E2E
                 Desktop.Capture(Path.Combine(output, "02-keyboard-shooting-star.png"));
                 Check(changedFromReady("02-keyboard-shooting-star.png", openSky) > 25, "Space activates the moon's shooting star without a mouse click");
                 Desktop.Key(0x09);
-                Check(stars.Current.HasKeyboardFocus, "Tab proceeds from the moon to the constellation");
+                Until(() => stars.Current.HasKeyboardFocus, "Tab proceeds from the moon to the constellation", 2000);
                 Desktop.Key(0x09);
-                Check(owl.Current.HasKeyboardFocus, "Tab proceeds from the constellation to the owl");
+                Until(() => owl.Current.HasKeyboardFocus, "Tab proceeds from the constellation to the owl", 2000);
                 Move(Find(room, ControlType.Button, Cooperative)); Thread.Sleep(350);
                 Move(Find(room, ControlType.Button, Stubborn)); Thread.Sleep(350);
                 Move(Find(room, ControlType.Button, Missing)); Thread.Sleep(350);
