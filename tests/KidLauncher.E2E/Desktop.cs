@@ -266,13 +266,15 @@ namespace KidLauncher.E2E
     {
         private readonly ManualResetEvent stop = new ManualResetEvent(false);
         private readonly Thread worker;
+        private readonly int interval;
         private Exception failure;
         private bool disposed;
 
-        public DesktopRecording(string directory)
+        public DesktopRecording(string directory, int framesPerSecond = 5)
         {
             if (directory == null) throw new ArgumentNullException(nameof(directory));
             Directory.CreateDirectory(directory);
+            interval = 1000 / framesPerSecond;
             worker = new Thread(() => Record(directory)) { IsBackground = true, Name = "Desktop recording" };
             worker.Start();
         }
@@ -288,12 +290,15 @@ namespace KidLauncher.E2E
                 {
                     if (clock.ElapsedMilliseconds >= 120000)
                         throw new TimeoutException("Desktop recording exceeded its two-minute limit; captured frames were retained.");
-                    long next = clock.ElapsedMilliseconds + 200;
+                    long next = clock.ElapsedMilliseconds + interval;
                     Desktop.Capture(Path.Combine(directory, "frame-" + frame.ToString("D6", System.Globalization.CultureInfo.InvariantCulture) + ".png"));
                     frame++;
-                    // Target 5fps without a catch-up burst if desktop capture is slow.
+                    // No catch-up burst if desktop capture is slow. Encode at the measured
+                    // rate so the review clip never speeds up an overloaded test desktop.
                     if (stop.WaitOne((int)Math.Max(0, next - clock.ElapsedMilliseconds))) break;
                 }
+                File.WriteAllText(Path.Combine(directory, "frame-rate.txt"),
+                    (frame / clock.Elapsed.TotalSeconds).ToString("R", System.Globalization.CultureInfo.InvariantCulture));
             }
             catch (Exception error) { failure = error; }
         }

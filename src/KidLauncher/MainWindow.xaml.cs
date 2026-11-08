@@ -375,6 +375,8 @@ namespace KidLauncher
         private void BringBack()
         {
             if (session != null && session.IsRunning) return;
+            // Replace the remembered child before Show can restore its logical focus.
+            FocusManager.SetFocusedElement(this, Backdrop);
             Show();
             EnterFullscreen();
             Topmost = true;
@@ -382,7 +384,7 @@ namespace KidLauncher
             SetForegroundWindow(new WindowInteropHelper(this).Handle);
             // A clicked tile retains logical focus while its game owns the desktop.
             // Return focus to the room so keyboard-focus feedback cannot pin its hover.
-            Keyboard.Focus(this);
+            Keyboard.Focus(Backdrop);
             Mouse.Synchronize();
             lastMove = DateTime.UtcNow;
             Mouse.OverrideCursor = null;

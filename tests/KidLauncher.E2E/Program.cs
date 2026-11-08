@@ -201,6 +201,13 @@ namespace KidLauncher.E2E
             Check(File.ReadAllBytes(Path.Combine(output, "02-launcher-ready.png"))
                 .SequenceEqual(File.ReadAllBytes(Path.Combine(output, "02-launcher-idle.png"))),
                 "idle launcher remains still even when Windows animations are enabled");
+            using (new DesktopRecording(Path.Combine(output, "motion-frames"), 30))
+            {
+                Move(Find(room, ControlType.Button, Cooperative)); Thread.Sleep(350);
+                Move(Find(room, ControlType.Button, Stubborn)); Thread.Sleep(350);
+                Move(Find(room, ControlType.Button, Missing)); Thread.Sleep(350);
+                Desktop.MovePointer(4, 4); Thread.Sleep(350);
+            }
             using (new DesktopRecording(Path.Combine(output, "frames")))
             {
                 var tile = Find(room, ControlType.Button, Cooperative);
@@ -255,6 +262,9 @@ namespace KidLauncher.E2E
                 Desktop.Capture(Path.Combine(output, "03-returned-hover.png"));
                 Check(edgeBrightness("03-returned-hover.png") > restingEdge + 0.15,
                     "card still responds to hover after returning from a game");
+                Desktop.MovePointer(4, 4);
+                Desktop.Key(0x09);
+                Until(() => tile.Current.HasKeyboardFocus, "Tab navigation still focuses a game after F6 return");
                 Play(room, launcher, Stubborn, stubbornEvents, true, unrelated, originalMode);
                 File.Delete(missing);
                 Click(Find(room, ControlType.Button, Missing));

@@ -56,11 +56,13 @@ function Invoke-Journey([string]$Name, [bool]$Negative) {
         if (Test-Path $logs) { Copy-Item $logs "$output/application-logs" -Recurse -Force }
         $journal = Join-Path $app 'Data/display-session.json'
         if (Test-Path $journal) { Copy-Item $journal "$output/pending-session.json" }
-        foreach ($recording in @('frames', 'resolution-frames', 'pin-free-frames')) {
+        foreach ($recording in @('frames', 'resolution-frames', 'pin-free-frames', 'motion-frames')) {
             $frames = Join-Path $output $recording
             if (Test-Path "$frames/frame-000000.png") {
                 $video = if ($recording -eq 'frames') { 'journey' } else { $recording.Replace('-frames', '') }
-                & ffmpeg -hide_banner -loglevel error -y -framerate 5 -i "$frames/frame-%06d.png" -vf 'pad=ceil(iw/2)*2:ceil(ih/2)*2' -c:v libx264 -preset ultrafast -pix_fmt yuv420p -movflags +faststart "$output/$video.mp4"
+                $frameRate = (Get-Content "$frames/frame-rate.txt" -Raw).Trim()
+                Copy-Item "$frames/frame-rate.txt" "$output/$video-frame-rate.txt"
+                & ffmpeg -hide_banner -loglevel error -y -framerate $frameRate -i "$frames/frame-%06d.png" -vf 'pad=ceil(iw/2)*2:ceil(ih/2)*2' -c:v libx264 -preset ultrafast -pix_fmt yuv420p -movflags +faststart "$output/$video.mp4"
                 if ($LASTEXITCODE -ne 0) { throw "Could not encode $Name desktop recording; raw frames retained." }
                 Remove-Item $frames -Recurse -Force
             }

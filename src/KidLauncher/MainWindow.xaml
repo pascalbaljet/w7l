@@ -3,8 +3,8 @@
  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
  Title="KidLauncher" WindowStyle="None" ResizeMode="NoResize"
  WindowState="Maximized" WindowStartupLocation="CenterScreen" Background="#14233B"
- ShowInTaskbar="False" FontFamily="Segoe UI" Foreground="White" UseLayoutRounding="True" Focusable="True">
- <Grid x:Name="Backdrop">
+ ShowInTaskbar="False" FontFamily="Segoe UI" Foreground="White" UseLayoutRounding="True">
+ <Grid x:Name="Backdrop" Focusable="True">
   <Grid x:Name="BackdropAccents" IsHitTestVisible="False" ClipToBounds="True">
    <Rectangle>
     <Rectangle.Fill><LinearGradientBrush StartPoint="0,0" EndPoint="0.8,1"><GradientStop Color="#303F285E" Offset="0"/><GradientStop Color="#805D487C" Offset="0.65"/><GradientStop Color="#A07A637D" Offset="1"/></LinearGradientBrush></Rectangle.Fill>
