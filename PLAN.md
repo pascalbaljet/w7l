@@ -351,7 +351,6 @@ Each game can configure:
 - Optional file to check for mount readiness
 - Mount timeout
 - Whether to unmount after exiting
-- Whether to restore the previously mounted image
 
 Example:
 
@@ -362,7 +361,6 @@ discImage:
   expectedDriveLetter: "V:"
   mountTimeoutMs: 10000
   unmountAfterExit: true
-  restorePreviousImage: false
 
 The actual persistent configuration format should be JSON.
 
@@ -375,14 +373,13 @@ Important:
 
 When starting a game requiring a disc:
 
-1. Check whether the requested image is already mounted.
-2. If it is, reuse it.
-3. Otherwise, safely unmount the current image from the configured unit.
-4. Mount the requested image.
-5. Wait for the Virtual CloneDrive command to complete.
-6. Wait until Windows recognizes the new virtual disc.
-7. Verify the expected volume or readiness file when configured.
-8. Continue only when the disc is ready.
+1. Verify the configured drive letter belongs to Virtual CloneDrive.
+2. Eject any current media from that dedicated drive, regardless of who mounted it.
+3. Mount the requested image.
+4. Wait for the Virtual CloneDrive command to complete.
+5. Wait until Windows recognizes the new virtual disc.
+6. Verify the expected volume or readiness file when configured.
+7. Continue only when the disc is ready.
 
 Use polling with a configurable timeout.
 
@@ -408,14 +405,12 @@ After game exit:
 - Wait until the tracked game processes have terminated.
 - Never unmount while the game is still accessing the virtual disc.
 - Unmount if configured.
-- Restore the previous image if configured and its identity can be determined reliably.
-- Preserve unrelated mounted images.
+- Never restore the previous image.
+- Preserve media on other drives. The configured drive belongs exclusively to KidLauncher.
 
 Treat mounting and unmounting as serialized operations.
 
-Maintain recovery information when replacing a previously mounted image.
-
-Avoid unnecessary repeated mounting.
+Maintain recovery information for interrupted mounting and cleanup. Do not require a media-change counter or previous-image ownership journal.
 
 ## 10. Fullscreen and window management
 

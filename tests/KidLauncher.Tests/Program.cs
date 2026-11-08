@@ -17,10 +17,10 @@ namespace KidLauncher.Tests
         {
             if (args.Contains("--process-fixture")) { Thread.Sleep(30000); return 0; }
             var tests = new Action[] { RuntimeContract, ConfigurationRoundTrip, Validation, PinHash, ForcedExitAndChildHandoff,
-                GracefulExit, LaunchFailureRestores, MountFailurePreventsLaunch, ExistingDiscIsPreserved,
-                PreviousDiscRestored, RecoveryWaitsForGame, FailedRestorationIsRetried, ConcurrentSessionsRejected,
-                DisabledForceExitKeepsResources, UnknownPriorImageDoesNotChangeDisc, WindowsProcessIdentity,
-                FutureSchemaCannotBeOverwritten, PreviousDiscRecoveryIsIdempotent, RecoveryFindsUnrecordedChild,
+                GracefulExit, LaunchFailureRestores, MountFailurePreventsLaunch, ExistingDiscIsReplaced,
+                DiscCanRemainMounted, RecoveryWaitsForGame, FailedRestorationIsRetried, ConcurrentSessionsRejected,
+                DisabledForceExitKeepsResources, LegacyDiscRestorationSettingIsIgnored, WindowsProcessIdentity,
+                FutureSchemaCannotBeOverwritten, DiscRecoveryIsIdempotent, RecoveryFindsUnrecordedChild,
                 ReportingFailureDoesNotLockSession, UncertainStartRequiresAdultRecovery, SelectedProcessNamesLeaveHelpersAlone,
                 WindowsShortcutLaunch, WindowsDisplayRejectsMismatchedNativeMode };
             int failed = 0;
@@ -160,22 +160,25 @@ namespace KidLauncher.Tests
                 Assert(f.Disc.Mounted == "" && f.Display.Current.Width == 1920, "Mount failure not cleaned up.");
             }
         }
-        private static void ExistingDiscIsPreserved()
+        private static void ExistingDiscIsReplaced()
         {
+            foreach (var previous in new[] { null, "previous.iso", "same" })
             using (var f = new Fixture())
             {
-                f.EnableDisc(); f.Disc.Mounted = f.Game.Disc.ImagePath; f.Processes.Alive = false;
+                f.EnableDisc(); f.Disc.Mounted = previous == "same" ? f.Game.Disc.ImagePath : previous; f.Processes.Alive = false;
                 Complete(f.Session.RunAsync(f.Game, CancellationToken.None));
-                Assert(f.Disc.Mounted == f.Game.Disc.ImagePath && f.Disc.Mounts == 0, "Already mounted disc was unnecessarily replaced.");
+                Assert(f.Processes.Started && f.Disc.Mounted == "" && f.Disc.Mounts == 1,
+                    "Every game must mount its requested image once and eject on exit, regardless of previous media.");
             }
         }
-        private static void PreviousDiscRestored()
+        private static void DiscCanRemainMounted()
         {
             using (var f = new Fixture())
             {
-                f.EnableDisc(); f.Game.Disc.RestorePreviousImage = true; f.Disc.Mounted = "previous.iso"; f.Processes.Alive = false;
+                f.EnableDisc(); f.Game.Disc.UnmountAfterExit = false; f.Disc.Mounted = "previous.iso"; f.Processes.Alive = false;
                 Complete(f.Session.RunAsync(f.Game, CancellationToken.None));
-                Assert(f.Disc.Mounted == "previous.iso" && f.Disc.Mounts == 2, "Previous disc identity not restored.");
+                Assert(f.Disc.Mounted == f.Game.Disc.ImagePath && f.Disc.Mounts == 1 && !File.Exists(f.RecoveryPath),
+                    "Disabling unmount must leave the requested game disc mounted, never restore the previous disc.");
             }
         }
         private static void RecoveryWaitsForGame()
@@ -229,14 +232,17 @@ namespace KidLauncher.Tests
                 Assert(f.Disc.Mounted == "" && f.Display.Current.Width == 1920, "Manual exit did not trigger cleanup.");
             }
         }
-        private static void UnknownPriorImageDoesNotChangeDisc()
+        private static void LegacyDiscRestorationSettingIsIgnored()
         {
             using (var f = new Fixture())
             {
-                f.EnableDisc(); f.Game.Disc.RestorePreviousImage = true;
-                Throws(() => Complete(f.Session.RunAsync(f.Game, CancellationToken.None)));
-                Assert(f.Disc.Mounted == null && f.Disc.Mounts == 0 && !f.Processes.Started,
-                    "Unknown prior-image identity was replaced despite requested restoration.");
+                f.EnableDisc();
+                var json = new JavaScriptSerializer();
+                f.Game.Disc = json.Deserialize<DiscSettings>(json.Serialize(f.Game.Disc).TrimEnd('}') + ",\"RestorePreviousImage\":true}");
+                f.Processes.Alive = false;
+                Complete(f.Session.RunAsync(f.Game, CancellationToken.None));
+                Assert(f.Processes.Started && f.Disc.Mounts == 1 && f.Disc.Mounted == "",
+                    "An older configuration's RestorePreviousImage flag must not block a game or restore old media.");
             }
         }
 
@@ -294,23 +300,23 @@ namespace KidLauncher.Tests
                 Assert(File.ReadAllText(f.Store.ConfigurationPath) == future, "Future schema was silently downgraded using the backup.");
             }
         }
-        private static void PreviousDiscRecoveryIsIdempotent()
+        private static void DiscRecoveryIsIdempotent()
         {
             using (var f = new Fixture())
             {
-                f.EnableDisc(); f.Game.Disc.RestorePreviousImage = true;
+                f.EnableDisc();
                 f.Processes.Alive = false; f.Disc.Mounted = "different.iso";
-                File.WriteAllText(f.RecoveryPath, new JavaScriptSerializer().Serialize(new RecoverySession {
-                    OriginalDisplay = f.Display.Capture(), Disc = f.Game.Disc, DiscChanged = true, PreviousImage = "previous.iso"
-                }));
-                Throws(() => Complete(f.Session.RecoverAsync()));
-                Assert(f.Disc.Mounted == "different.iso" && f.Disc.Mounts == 0 && File.Exists(f.RecoveryPath),
-                    "Previous-image recovery must preserve media replaced outside the session.");
-                f.Disc.Mounted = f.Game.Disc.ImagePath;
+                var saved = new JavaScriptSerializer().Serialize(new RecoverySession {
+                    OriginalDisplay = f.Display.Capture(), Disc = f.Game.Disc, DiscChanged = true
+                });
+                File.WriteAllText(f.RecoveryPath, saved.TrimEnd('}') + ",\"PreviousImage\":\"previous.iso\"}");
                 f.Display.FailApply = true;
                 Throws(() => Complete(f.Session.RecoverAsync()));
+                Assert(f.Disc.Mounted == "" && f.Disc.Mounts == 0 && File.Exists(f.RecoveryPath),
+                    "Recovery must eject the dedicated drive without restoring old media, while retaining failed display recovery.");
                 f.Display.FailApply = false; Complete(f.Session.RecoverAsync());
-                Assert(f.Disc.Mounted == "previous.iso" && f.Disc.Mounts == 1 && !File.Exists(f.RecoveryPath), "Recovery must replace the managed drive once, then leave the already-restored disc alone on retry.");
+                Complete(f.Session.RecoverAsync());
+                Assert(f.Disc.Mounted == "" && f.Disc.Mounts == 0 && !File.Exists(f.RecoveryPath), "Repeated recovery must leave the drive empty and clear completed recovery.");
             }
         }
         private static void RecoveryFindsUnrecordedChild()
@@ -442,13 +448,11 @@ namespace KidLauncher.Tests
         private sealed class FakeDisc : IDiscService
         {
             public string Mounted; public bool FailReady; public int Mounts;
-            public string GetMountedImage(DiscSettings disc) { ValidateMapping(disc); return Mounted; }
             public void ValidateMapping(DiscSettings disc) { if (disc.VirtualDriveIndex != 2) throw new Exception("Wrong drive touched"); }
             public Task MountAsync(DiscSettings disc, string image, CancellationToken token) { ValidateMapping(disc); Mounted = image; Mounts++; return Task.CompletedTask; }
             public Task UnmountAsync(DiscSettings disc, CancellationToken token)
             {
                 ValidateMapping(disc);
-                if (!string.IsNullOrEmpty(Mounted) && Mounted != disc.ImagePath) throw new IOException("Refusing to eject unowned media.");
                 Mounted = ""; return Task.CompletedTask;
             }
             public Task WaitReadyAsync(DiscSettings disc, CancellationToken token) { if (FailReady) throw new TimeoutException("disc not ready"); return Task.CompletedTask; }

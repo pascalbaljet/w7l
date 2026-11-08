@@ -29,7 +29,6 @@ namespace KidLauncher.Core
 
     public interface IDiscService
     {
-        string GetMountedImage(DiscSettings disc);
         void ValidateMapping(DiscSettings disc);
         Task MountAsync(DiscSettings disc, string imagePath, CancellationToken cancellationToken);
         Task UnmountAsync(DiscSettings disc, CancellationToken cancellationToken);

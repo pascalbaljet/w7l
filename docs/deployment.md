@@ -42,12 +42,14 @@ The children's launcher defaults to Dutch, including when an older configuration
 
 1. Select the installed `VCDMount.exe` in **Virtual drives**, or use detection.
 2. Discover or select the existing Virtual CloneDrive drive letter. The service verifies both its ELBY device identity and the current user's `VCDDriveMask`.
-3. Select the image in the game's disc settings and assign a managed slot ID and the expected drive letter. The slot ID is a journal key, not a guessed driver index. Commands use `VCDMount.exe /l=<letter>` so Virtual CloneDrive resolves its own target unit.
+3. Select the image in the game's disc settings and set the expected drive letter. Commands use `VCDMount.exe /l=<letter>` so Virtual CloneDrive resolves its own target unit. The legacy slot ID is not a driver index.
 4. Set a volume label or a readiness file if the game needs additional disc verification.
 5. Test mounting before launching the game.
-6. Choose whether to unmount after exit or restore the previous image.
+6. Choose whether to unmount after exit. If disabled, the game's disc remains mounted until the next game replaces it.
 
-KidLauncher refuses a drive operation if it cannot verify the selected Virtual CloneDrive letter. A durable journal identifies images mounted by KidLauncher only while device, boot, media-generation, and volume identity still match. History entries are not trusted. A previous image mounted outside KidLauncher may have unknown identity and cannot then be restored automatically. Drivers without a usable media-change counter require manual cleanup.
+Dedicate the selected drive to KidLauncher. Every disc game replaces whatever is mounted there, including media mounted outside KidLauncher. Previous images are never restored. The old Restore Previous Image setting is ignored in existing configuration and recovery files. Mount tests replace the disc and eject it when complete.
+
+KidLauncher still verifies that the selected letter belongs to Virtual CloneDrive before changing it. Other drives remain untouched. Media-change counters and ownership journals are no longer required. Game and test recovery records remain in use to finish interrupted cleanup after the game exits.
 
 ## Enable automatic startup
 

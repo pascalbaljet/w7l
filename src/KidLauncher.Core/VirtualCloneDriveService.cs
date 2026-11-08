@@ -7,7 +7,6 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Xml;
 using Microsoft.Win32;
 using Microsoft.Win32.SafeHandles;
 
@@ -19,12 +18,10 @@ namespace KidLauncher.Core
         private static FileStream commandLock;
         private readonly string executable;
         private readonly ILog log;
-        private readonly string stateDirectory;
-        public VirtualCloneDriveService(string vcdMountPath, ILog log, string stateDirectory = null)
+        public VirtualCloneDriveService(string vcdMountPath, ILog log)
         {
             executable = string.IsNullOrWhiteSpace(vcdMountPath) ? DetectExecutable() : Path.GetFullPath(vcdMountPath);
             this.log = log ?? throw new ArgumentNullException(nameof(log));
-            this.stateDirectory = stateDirectory == null ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "KidLauncher") : Path.GetFullPath(stateDirectory);
         }
 
         public static string DetectExecutable()
@@ -46,13 +43,6 @@ namespace KidLauncher.Core
                 if (File.Exists(candidate)) return candidate;
             }
             return null;
-        }
-
-        public string GetMountedImage(DiscSettings disc)
-        {
-            EnterAsync(disc, CancellationToken.None).GetAwaiter().GetResult();
-            try { ValidateMapping(disc); return KnownImage(disc); }
-            finally { Exit(); }
         }
 
         public void ValidateMapping(DiscSettings disc)
@@ -86,7 +76,7 @@ namespace KidLauncher.Core
                         if (pnp == null || pnp.IndexOf("VEN_ELBY&PROD_CLONEDRIVE", StringComparison.OrdinalIgnoreCase) < 0)
                             throw new InvalidOperationException(letter + " is not an ELBY Virtual CloneDrive device.");
                         log.Write("Verified VCD letter " + letter + " against VCDDriveMask and ELBY PnP device " + pnp +
-                            ". Legacy configured index " + disc.VirtualDriveIndex + " is a journal lookup key only; /l=" + letter[0] + " resolves the actual VCD target. Integer slot mapping is not assumed.");
+                            ". /l=" + letter[0] + " resolves the actual VCD target. Integer slot mapping is not assumed.");
                         return;
                     }
             throw new InvalidOperationException("Configured VCD drive " + letter + " was not found. Check its assigned letter in Disk Management.");
@@ -100,32 +90,14 @@ namespace KidLauncher.Core
                 ValidateMapping(disc);
                 string image = Path.GetFullPath(imagePath);
                 if (!File.Exists(image)) throw new FileNotFoundException("Disc image not found.", image);
-                string previous = KnownImage(disc);
-                if (string.Equals(previous, image, StringComparison.OrdinalIgnoreCase))
-                {
-                    await WaitReadyCoreAsync(disc, cancellationToken).ConfigureAwait(false);
-                    return;
-                }
-                bool occupied = !IsEmpty(disc);
-                if (disc.RestorePreviousImage && occupied && previous == null)
-                    throw new InvalidOperationException("The previous image was mounted outside KidLauncher or its live media generation cannot be verified. Disable Restore Previous Image to authorize replacement of the configured managed unit, or eject it manually first.");
-                // MountAsync is explicit replacement intent. Cleanup-only UnmountAsync
-                // intentionally has stricter ownership checks. Do not pre-unmount here
-                // through that public method (nor from GameSession).
-                DeleteJournal(disc.VirtualDriveIndex);
-                if (occupied)
+                // This verified drive is dedicated to KidLauncher. Always replace its
+                // media, even if the previous image was mounted outside the launcher.
+                if (!IsEmpty(disc))
                 {
                     await RunAsync(disc, "/u", cancellationToken).ConfigureAwait(false);
                     await WaitEmptyAsync(disc, cancellationToken).ConfigureAwait(false);
                 }
                 await RunAsync(disc, Quote(image), cancellationToken).ConfigureAwait(false);
-                // Establish ownership before optional content checks can fail, so a
-                // wrong label/readiness file still permits safe session cleanup.
-                var readable = new DiscSettings { VirtualDriveIndex = disc.VirtualDriveIndex,
-                    ExpectedDriveLetter = disc.ExpectedDriveLetter, MountTimeoutMs = disc.MountTimeoutMs };
-                await WaitReadyCoreAsync(readable, CancellationToken.None).ConfigureAwait(false);
-                var media = ReadMedia(disc);
-                WriteJournal(disc, image, media);
                 await WaitReadyCoreAsync(disc, cancellationToken).ConfigureAwait(false);
                 log.Write("VCD mount command and content verification completed for unit " + disc.VirtualDriveIndex + ": " + image);
             }
@@ -138,15 +110,10 @@ namespace KidLauncher.Core
             try
             {
                 ValidateMapping(disc);
-                if (IsEmpty(disc)) { DeleteJournal(disc.VirtualDriveIndex); return; }
-                string current = KnownImage(disc);
-                if (current == null || !Path.IsPathRooted(disc.ImagePath) || !string.Equals(current, Path.GetFullPath(disc.ImagePath), StringComparison.OrdinalIgnoreCase))
-                    throw new InvalidOperationException("Cleanup refused: the selected unit no longer contains the verified KidLauncher image. Another program may have changed the disc. Its media has been preserved. Use MountAsync, not UnmountAsync, for intentional replacement.");
-                ValidateMapping(disc);
+                if (IsEmpty(disc)) return;
                 await RunAsync(disc, "/u", cancellationToken).ConfigureAwait(false);
                 await WaitEmptyAsync(disc, cancellationToken).ConfigureAwait(false);
-                DeleteJournal(disc.VirtualDriveIndex);
-                log.Write("Verified image ejected from VCD unit " + disc.VirtualDriveIndex);
+                log.Write("Dedicated VCD drive ejected: " + Letter(disc));
             }
             finally { Exit(); }
         }
@@ -273,145 +240,6 @@ namespace KidLauncher.Core
             }
         }
 
-        private sealed class MediaIdentity
-        {
-            public string Device, Boot, Volume;
-            public uint Generation, GenerationSource;
-        }
-
-        private string KnownImage(DiscSettings disc)
-        {
-            try
-            {
-                int unit = disc.VirtualDriveIndex;
-                string path = JournalPath(unit);
-                if (!File.Exists(path)) return null;
-                var document = new XmlDocument { XmlResolver = null };
-                using (var reader = XmlReader.Create(path, new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null, MaxCharactersInDocument = 131072 }))
-                    document.Load(reader);
-                var root = document.DocumentElement;
-                if (root == null || root.Name != "vcd" || root.GetAttribute("version") != "1" || root.GetAttribute("unit") != unit.ToString(System.Globalization.CultureInfo.InvariantCulture)) return null;
-                if (!string.Equals(Letter(disc), root.GetAttribute("letter"), StringComparison.OrdinalIgnoreCase)) return null;
-                uint generation, source = 0x002D0800; // Version-1 journals used CHECK_VERIFY2 only.
-                if (root.HasAttribute("generationSource") && !uint.TryParse(root.GetAttribute("generationSource"), out source)) return null;
-                var current = ReadMedia(disc, source);
-                if (!uint.TryParse(root.GetAttribute("generation"), out generation) || generation != current.Generation ||
-                    source != current.GenerationSource ||
-                    !string.Equals(root.GetAttribute("device"), current.Device, StringComparison.OrdinalIgnoreCase) ||
-                    root.GetAttribute("boot") != current.Boot || root.GetAttribute("volume") != current.Volume) return null;
-                string image = root.GetAttribute("image");
-                return Path.IsPathRooted(image) ? image : null;
-            }
-            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is XmlException || ex is Win32Exception || ex is ManagementException || ex is InvalidOperationException || ex is ArgumentException)
-            {
-                log.Write("VCD slot " + disc.VirtualDriveIndex + ": journal cannot establish live image identity: " + ex.Message);
-                return null;
-            }
-        }
-
-        private void WriteJournal(DiscSettings disc, string image, MediaIdentity media)
-        {
-            Directory.CreateDirectory(stateDirectory);
-            string path = JournalPath(disc.VirtualDriveIndex);
-            string temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
-            try
-            {
-                using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
-                {
-                    using (var writer = XmlWriter.Create(stream, new XmlWriterSettings { Encoding = new UTF8Encoding(false), CloseOutput = false }))
-                    {
-                        writer.WriteStartElement("vcd");
-                        writer.WriteAttributeString("version", "1");
-                        writer.WriteAttributeString("unit", disc.VirtualDriveIndex.ToString(System.Globalization.CultureInfo.InvariantCulture));
-                        writer.WriteAttributeString("letter", Letter(disc));
-                        writer.WriteAttributeString("image", image);
-                        writer.WriteAttributeString("device", media.Device);
-                        writer.WriteAttributeString("boot", media.Boot);
-                        writer.WriteAttributeString("volume", media.Volume);
-                        writer.WriteAttributeString("generation", media.Generation.ToString(System.Globalization.CultureInfo.InvariantCulture));
-                        writer.WriteAttributeString("generationSource", media.GenerationSource.ToString(System.Globalization.CultureInfo.InvariantCulture));
-                        writer.WriteEndElement();
-                    }
-                    stream.Flush(true);
-                }
-                if (File.Exists(path)) File.Replace(temporary, path, null);
-                else File.Move(temporary, path);
-            }
-            finally { if (File.Exists(temporary)) File.Delete(temporary); }
-        }
-
-        private string JournalPath(int unit) { return Path.Combine(stateDirectory, "vcd-unit-" + unit + ".xml"); }
-        private void DeleteJournal(int unit) { string path = JournalPath(unit); if (File.Exists(path)) File.Delete(path); }
-
-        private MediaIdentity ReadMedia(DiscSettings disc, uint requiredSource = 0)
-        {
-            string device = null;
-            using (var search = new ManagementObjectSearcher("SELECT Drive,PNPDeviceID FROM Win32_CDROMDrive"))
-            using (var devices = search.Get())
-                foreach (ManagementObject item in devices)
-                    using (item)
-                        if (string.Equals(item["Drive"] as string, Letter(disc), StringComparison.OrdinalIgnoreCase)) device = item["PNPDeviceID"] as string;
-            if (string.IsNullOrEmpty(device)) throw new InvalidOperationException("VCD device identity is unavailable.");
-            string boot = null;
-            using (var search = new ManagementObjectSearcher("SELECT LastBootUpTime FROM Win32_OperatingSystem"))
-            using (var systems = search.Get())
-                foreach (ManagementObject item in systems)
-                    using (item) boot = item["LastBootUpTime"] as string;
-            if (string.IsNullOrEmpty(boot)) throw new InvalidOperationException("Cannot verify the current Windows boot session; the VCD journal is not trusted.");
-            uint source;
-            uint generation = MediaGeneration(disc, out source, requiredSource);
-            var label = new StringBuilder(261);
-            var fileSystem = new StringBuilder(261);
-            uint serial, maxComponent, flags;
-            if (!GetVolumeInformation(Letter(disc) + @"\", label, label.Capacity, out serial, out maxComponent, out flags, fileSystem, fileSystem.Capacity))
-                throw new Win32Exception(Marshal.GetLastWin32Error(), "Cannot read the VCD volume identity.");
-            uint afterSource;
-            uint after = MediaGeneration(disc, out afterSource, source);
-            if (after != generation) throw new InvalidOperationException("The VCD media changed while checking its identity.");
-            return new MediaIdentity { Device = device, Boot = boot, Generation = generation, GenerationSource = source,
-                Volume = serial.ToString("X8") + "|" + label + "|" + fileSystem };
-        }
-
-        private uint MediaGeneration(DiscSettings disc, out uint source, uint requiredSource = 0)
-        {
-            // VERIFY2 requires FILE_READ_ATTRIBUTES. The older STORAGE and CDROM
-            // requests require read access and can take a different driver path.
-            // Never interpret success with zero output bytes as a counter.
-            var requests = new[] {
-                new { Name = "IOCTL_STORAGE_CHECK_VERIFY2", Code = 0x002D0800u, Access = 0x80u },
-                new { Name = "IOCTL_STORAGE_CHECK_VERIFY", Code = 0x002D4800u, Access = 0x80000000u },
-                new { Name = "IOCTL_CDROM_CHECK_VERIFY", Code = 0x00024800u, Access = 0x80000000u }
-            };
-            var diagnostics = new StringBuilder();
-            foreach (var request in requests)
-            {
-                if (requiredSource != 0 && request.Code != requiredSource) continue;
-                using (var handle = CreateFile(@"\\.\" + Letter(disc), request.Access, 3, IntPtr.Zero, 3, 0, IntPtr.Zero))
-                {
-                    if (handle.IsInvalid)
-                    {
-                        diagnostics.Append(request.Name).Append(" open error ").Append(Marshal.GetLastWin32Error()).Append("; ");
-                        continue;
-                    }
-                    var data = Marshal.AllocHGlobal(4);
-                    try
-                    {
-                        int returned;
-                        bool success = DeviceIoControl(handle, request.Code, IntPtr.Zero, 0, data, 4, out returned, IntPtr.Zero);
-                        int error = success ? 0 : Marshal.GetLastWin32Error();
-                        log.Write("VCD " + Letter(disc) + " " + request.Name + ": success=" + success + ", bytes=" + returned + ", error=" + error);
-                        if (success && returned == 4)
-                        {
-                            source = request.Code;
-                            return unchecked((uint)Marshal.ReadInt32(data));
-                        }
-                        diagnostics.Append(request.Name).Append(" success=").Append(success).Append(" bytes=").Append(returned).Append(" error=").Append(error).Append("; ");
-                    }
-                    finally { Marshal.FreeHGlobal(data); }
-                }
-            }
-            throw new InvalidOperationException("The VCD driver did not provide a verifiable media-change counter through the supported storage/CDROM queries. " + diagnostics + " Keep the log for diagnosis; no unverified cleanup is authorized.");
-        }
         private static int Timeout(DiscSettings disc)
         {
             if (disc.MountTimeoutMs < 100 || disc.MountTimeoutMs > 300000) throw new InvalidOperationException("Mount timeout must be 100–300000 ms.");
@@ -439,6 +267,5 @@ namespace KidLauncher.Core
         }
         [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)] private static extern SafeFileHandle CreateFile(string name, uint access, uint share, IntPtr security, uint disposition, uint flags, IntPtr template);
         [DllImport("kernel32.dll", SetLastError = true)] private static extern bool DeviceIoControl(SafeFileHandle device, uint code, IntPtr input, int inputSize, IntPtr output, int outputSize, out int returned, IntPtr overlapped);
-        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)] private static extern bool GetVolumeInformation(string root, StringBuilder label, int labelSize, out uint serial, out uint maxComponent, out uint flags, StringBuilder fileSystem, int fileSystemSize);
     }
 }

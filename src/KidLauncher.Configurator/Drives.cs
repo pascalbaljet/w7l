@@ -46,7 +46,7 @@ namespace KidLauncher.Configurator
         {
             Check(p, "This game requires a disc image", disc, "Enabled");
             PathField(p, "Disc image", disc, "ImagePath", "Disc images|*.iso;*.bin;*.img;*.udf;*.dvd;*.ccd|All files|*.*");
-            Field(p, "Managed slot ID (0–14; saved journal key, not a guessed driver index)", disc, "VirtualDriveIndex");
+            Field(p, "Legacy slot ID (0–14; the drive is selected by letter)", disc, "VirtualDriveIndex");
             Field(p, "Expected Windows drive letter (for example V:)", disc, "ExpectedDriveLetter");
             Field(p, "Expected volume label (optional)", disc, "ExpectedVolumeLabel");
             var ready = Field(p, "Readiness file relative to disc root (optional)", disc, "ReadinessFile");
@@ -58,9 +58,9 @@ namespace KidLauncher.Configurator
                 ready.Text = file.Substring(root.Length);
             }));
             Field(p, "Mount / readiness timeout (milliseconds, 1000–120000)", disc, "MountTimeoutMs");
-            Check(p, "Unmount after the game exits", disc, "UnmountAfterExit"); Check(p, "Restore previous image when its identity is known", disc, "RestorePreviousImage");
+            Check(p, "Unmount after the game exits", disc, "UnmountAfterExit");
             p.Children.Add(Buttons(Button("Verify unit ↔ letter and read volume", () => VerifyDisc(disc)), Button("Mount and readiness test…", () => TestDisc(disc, false)), Button("Unmount this unit…", () => TestDisc(disc, true))));
-            p.Children.Add(Note("Mount tests explicitly authorize switching only this verified managed unit. When Restore previous image is enabled, an unknown previous image causes a safe refusal. Known prior images are restored after tests; otherwise test cleanup ejects only media still owned by KidLauncher’s driver-generation journal. If another program changes the disc or ownership cannot be verified, cleanup stops and preserves recovery state."));
+            p.Children.Add(Note("This drive is dedicated to KidLauncher. Starting a game or mount test replaces any existing disc, even one mounted outside KidLauncher. Previous discs are never restored. Mount tests eject the disc when complete. Other drives are not changed."));
         }
         IDiscService DiscService() { return new VirtualCloneDriveService(store.ResolvePath(config.VcdMountPath), log); }
         static void ValidateDiscTest(DiscSettings disc)
@@ -79,7 +79,6 @@ namespace KidLauncher.Configurator
         async void TestDisc(DiscSettings disc, bool unmountOnly)
         {
             bool started = false, changed = false;
-            string previous = null;
             IDiscService service = null;
             DiscSettings snapshot = null;
             FileStream ownership = null;
@@ -90,9 +89,7 @@ namespace KidLauncher.Configurator
                 ownership = AcquireStandaloneOwnership();
                 snapshot = Copy(new Game { Disc = disc }).Disc; snapshot.ImagePath = store.ResolvePath(snapshot.ImagePath);
                 service = DiscService(); service.ValidateMapping(snapshot);
-                if (MessageBox.Show(this, "This will " + (unmountOnly ? "eject the owned image from" : "switch the image in") + " VCD unit " + snapshot.VirtualDriveIndex + " (" + snapshot.ExpectedDriveLetter + "). Confirm no program is using this disc. If the previous image is unknown and Restore previous image is off, it cannot be put back automatically.", "Confirm managed unit", MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK) return;
-                previous = service.GetMountedImage(snapshot);
-                if (!unmountOnly && snapshot.RestorePreviousImage && previous == null) throw new InvalidOperationException("The previous image cannot be identified reliably. Disable Restore previous image only if you authorize replacing it without automatic restoration. No image was changed.");
+                if (MessageBox.Show(this, "This will " + (unmountOnly ? "eject the disc from" : "replace any disc in") + " the dedicated VCD drive " + snapshot.ExpectedDriveLetter + ". Confirm no program is using this disc. The previous disc will not be restored.", "Confirm dedicated drive", MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK) return;
                 SetBusy(true); started = true;
                 using (var timeout = new CancellationTokenSource(snapshot.MountTimeoutMs))
                 {
@@ -100,9 +97,7 @@ namespace KidLauncher.Configurator
                     else
                     {
                         string image = store.ResolvePath(snapshot.ImagePath); if (!File.Exists(image)) throw new FileNotFoundException("Select an existing image file.", image);
-                        if (!string.Equals(previous, image, StringComparison.OrdinalIgnoreCase)) { SaveDiscTestJournal(snapshot, previous ?? ""); changed = true; }
-                        // MountAsync owns authorized replacement; public UnmountAsync is
-                        // cleanup-only and must not be called to eject unknown prior media.
+                        SaveDiscTestJournal(snapshot); changed = true;
                         await service.MountAsync(snapshot, image, timeout.Token); await service.WaitReadyAsync(snapshot, timeout.Token);
                         var drive = new DriveInfo(snapshot.ExpectedDriveLetter.TrimEnd('\\') + "\\");
                         MessageBox.Show(this, "Disc ready.\nDrive: " + drive.Name + "\nVolume: " + drive.VolumeLabel + "\nClose this message to complete test cleanup.", "Disc test successful");
@@ -114,7 +109,7 @@ namespace KidLauncher.Configurator
             {
                 if (changed)
                 {
-                    try { await RestoreDiscTest(); status.Text = "Disc test complete; prior state restored."; }
+                    try { await RestoreDiscTest(); status.Text = "Disc test complete; dedicated drive ejected."; }
                     catch (Exception ex) { restorePending = true; failure = failure == null ? ex : new AggregateException(failure, ex); }
                 }
                 if (started) SetBusy(false);

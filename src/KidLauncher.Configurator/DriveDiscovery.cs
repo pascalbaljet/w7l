@@ -36,15 +36,15 @@ namespace KidLauncher.Configurator
                                 string pnp = device["PNPDeviceID"] as string, letter = device["Drive"] as string;
                                 if (pnp == null || string.IsNullOrEmpty(letter) || pnp.IndexOf("VEN_ELBY&PROD_CLONEDRIVE", StringComparison.OrdinalIgnoreCase) < 0) continue;
                                 var candidate = new DiscSettings { VirtualDriveIndex = result.Count, ExpectedDriveLetter = letter };
-                                // /l addresses the driver's real target; this index is
-                                // only a stable key once saved in the game settings.
+                                // /l addresses the driver's real target. Keep the legacy
+                                // index for existing game settings, not driver addressing.
                                 try { DiscService().ValidateMapping(candidate); }
                                 catch (InvalidOperationException) { continue; }
                                 if (result.Count < 15) result.Add(new VirtualUnit { Index = result.Count, Letter = letter });
                             }
                     return result;
                 });
-                description.Text = list.Items.Count == 0 ? "No ELBY drives matched the current user's VCDDriveMask. Open Virtual CloneDrive settings under this Windows account and retry." : "Select a verified drive. VCDMount resolves its actual unit through /l=<letter>; managed slot numbers are journal keys, not guessed driver indices.";
+                description.Text = list.Items.Count == 0 ? "No ELBY drives matched the current user's VCDDriveMask. Open Virtual CloneDrive settings under this Windows account and retry." : "Select a verified drive. VCDMount resolves its actual unit through /l=<letter>; legacy slot numbers are not driver indices. Dedicate this drive to KidLauncher.";
             }
             catch (Exception ex) { Error("Virtual-unit discovery failed", ex); }
             finally { if (started) SetBusy(false); }

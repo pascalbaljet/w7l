@@ -39,12 +39,12 @@ Start with a disposable game or a game with saved progress backed up. Keep a key
 - [ ] The configured existing unit and drive letter are correctly verified.
 - [ ] A wrong letter is rejected without changing another drive.
 - [ ] The correct image is mounted before launch and its volume or readiness file is checked.
-- [ ] An already mounted requested image is reused without unnecessary replacement.
+- [ ] An existing disc, whether unknown or the same image, is replaced by the requested game image.
 - [ ] Mount failures and timeouts prevent game launch.
 - [ ] Cleanup waits until all tracked game processes have exited.
-- [ ] Unmount and previous-image restoration follow the chosen settings.
+- [ ] Unmount after exit follows the chosen setting. The previous image is never restored, including with older configuration or recovery files.
 - [ ] Other Virtual CloneDrive units and unrelated mounted images remain unchanged.
-- [ ] The log identifies a storage or CDROM query that returns a four-byte media-change counter. Ejecting and reinserting the same image changes that counter.
+- [ ] Mounting and ejecting work without a driver media-change counter.
 
 ## Recovery
 

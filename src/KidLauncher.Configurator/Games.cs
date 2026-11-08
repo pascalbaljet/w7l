@@ -74,7 +74,7 @@ namespace KidLauncher.Configurator
                 ArtworkPath = g.ArtworkPath, Visible = g.Visible, RunAsAdministrator = g.RunAsAdministrator, Resolution = g.Resolution,
                 ProcessNames = new List<string>(g.ProcessNames), StartupGraceMs = g.StartupGraceMs, GracefulExitTimeoutMs = g.GracefulExitTimeoutMs, AutomaticForceExit = g.AutomaticForceExit,
                 Disc = new DiscSettings { Enabled = g.Disc.Enabled, ImagePath = g.Disc.ImagePath, VirtualDriveIndex = g.Disc.VirtualDriveIndex, ExpectedDriveLetter = g.Disc.ExpectedDriveLetter,
-                    ExpectedVolumeLabel = g.Disc.ExpectedVolumeLabel, ReadinessFile = g.Disc.ReadinessFile, MountTimeoutMs = g.Disc.MountTimeoutMs, UnmountAfterExit = g.Disc.UnmountAfterExit, RestorePreviousImage = g.Disc.RestorePreviousImage } };
+                    ExpectedVolumeLabel = g.Disc.ExpectedVolumeLabel, ReadinessFile = g.Disc.ReadinessFile, MountTimeoutMs = g.Disc.MountTimeoutMs, UnmountAfterExit = g.Disc.UnmountAfterExit } };
         }
         void Duplicate() { EnsureIdle(); if (selected == null) return; var g = Copy(selected); config.Games.Insert(config.Games.IndexOf(selected) + 1, g); RefreshGames(g); }
 

@@ -98,8 +98,7 @@ namespace KidLauncher.Core
                     Enabled = game.Disc.Enabled, ImagePath = store.ResolvePath(game.Disc.ImagePath),
                     VirtualDriveIndex = game.Disc.VirtualDriveIndex, ExpectedDriveLetter = game.Disc.ExpectedDriveLetter,
                     ExpectedVolumeLabel = game.Disc.ExpectedVolumeLabel, ReadinessFile = game.Disc.ReadinessFile,
-                    MountTimeoutMs = game.Disc.MountTimeoutMs, UnmountAfterExit = game.Disc.UnmountAfterExit,
-                    RestorePreviousImage = game.Disc.RestorePreviousImage
+                    MountTimeoutMs = game.Disc.MountTimeoutMs, UnmountAfterExit = game.Disc.UnmountAfterExit
                 };
                 session = new RecoverySession { OriginalDisplay = display.Capture(), Disc = disc, ProcessNames = new List<string>(game.ProcessNames) };
                 recovery.Save(session);
@@ -107,17 +106,11 @@ namespace KidLauncher.Core
                 {
                     discs.ValidateMapping(disc);
                     var image = disc.ImagePath;
-                    var previous = discs.GetMountedImage(disc);
-                    if (!string.Equals(previous, image, StringComparison.OrdinalIgnoreCase))
-                    {
-                        if (disc.RestorePreviousImage && previous == null)
-                            throw new InvalidOperationException("The previous image cannot be identified. Disable restoration only after checking the managed drive in Virtual CloneDrive.");
-                        session.PreviousImage = previous;
-                        // Persist intent before changing a drive, including failures midway through mounting.
-                        session.DiscChanged = true;
-                        recovery.Save(session);
-                        await discs.MountAsync(disc, image, cancellationToken);
-                    }
+                    // The configured drive is dedicated to KidLauncher. Persist intent
+                    // before replacing any existing disc, including a partial mount.
+                    session.DiscChanged = true;
+                    recovery.Save(session);
+                    await discs.MountAsync(disc, image, cancellationToken);
                     await discs.WaitReadyAsync(disc, cancellationToken);
                     Report("Disc ready: " + image);
                 }
@@ -231,28 +224,10 @@ namespace KidLauncher.Core
             catch (Exception e) { failures.Add(e); }
             try
             {
-                if (session.DiscChanged && session.Disc != null && session.Disc.Enabled)
+                if (session.DiscChanged && session.Disc != null && session.Disc.Enabled && session.Disc.UnmountAfterExit)
                 {
-                    discs.ValidateMapping(session.Disc);
-                    if (session.Disc.RestorePreviousImage && !string.IsNullOrEmpty(session.PreviousImage))
-                    {
-                        var previousDisc = new DiscSettings {
-                            Enabled = true, ImagePath = session.PreviousImage, VirtualDriveIndex = session.Disc.VirtualDriveIndex,
-                            ExpectedDriveLetter = session.Disc.ExpectedDriveLetter, MountTimeoutMs = session.Disc.MountTimeoutMs,
-                            RestorePreviousImage = true
-                        };
-                        if (!string.Equals(discs.GetMountedImage(session.Disc), session.PreviousImage, StringComparison.OrdinalIgnoreCase))
-                        {
-                            // Automatic cleanup has no authority to replace external
-                            // media. Verify/eject our own image before restoring.
-                            await discs.UnmountAsync(session.Disc, CancellationToken.None);
-                            await discs.MountAsync(previousDisc, session.PreviousImage, CancellationToken.None);
-                        }
-                        await discs.WaitReadyAsync(previousDisc, CancellationToken.None);
-                        Report("Previous disc image restored.");
-                    }
-                    else if (session.Disc.UnmountAfterExit || session.Disc.RestorePreviousImage)
-                    { await discs.UnmountAsync(session.Disc, CancellationToken.None); Report("Managed disc unmounted."); }
+                    await discs.UnmountAsync(session.Disc, CancellationToken.None);
+                    Report("Dedicated disc drive unmounted.");
                 }
             }
             catch (Exception e) { failures.Add(e); }

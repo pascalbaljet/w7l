@@ -38,13 +38,11 @@ With no process names selected, KidLauncher tracks all verified descendants. If 
 5. Increase the mount timeout if Windows recognizes this image slowly.
 6. Check whether another application has locked the drive.
 
-KidLauncher does not create units or install a driver. It waits for both the command and Windows disc readiness. An unverifiable unit mapping or previous-image identity is an error, not permission to guess. Different Virtual CloneDrive releases can expose different registry or device state. Collect the diagnostic before changing unrelated units.
+KidLauncher does not create units or install a driver. It waits for both the command and Windows disc readiness. An unverifiable unit mapping is an error, not permission to guess. Different Virtual CloneDrive releases can expose different registry or device state. Collect the diagnostic before changing unrelated units.
 
-For media-change verification, KidLauncher tries `IOCTL_STORAGE_CHECK_VERIFY2` with read-attributes access, then read-access storage and CDROM queries. The log records success, returned bytes, and Windows errors. Success with zero returned bytes is not a usable counter. A selected counter source is saved with the mount journal and reused for cleanup. These fallbacks do not establish compatibility until tested with the installed driver.
+The selected drive is dedicated to KidLauncher. Starting a disc game replaces any existing disc without identifying or saving it. Previous images are never restored. Cleanup ejects the dedicated drive when **Unmount after the game exits** is enabled. Other drives are not changed.
 
-If all three queries fail or return no counter, retain the log and report the Virtual CloneDrive version. Do not delete recovery state or disable ownership checks to force an eject. A mount interrupted by an older build before its ownership journal was written may need one manual eject after confirming that every game has exited.
-
-If recovery cannot restore a previous image, mount it manually using Virtual CloneDrive after confirming that the game has exited. Preserve the recovery record until you have verified both display and disc state.
+If an older build reported a missing media-change counter, update both applications. Current builds no longer require that counter. Close all games and retry recovery to finish an interrupted cleanup. Preserve recovery records and logs if display restoration or eject still fails.
 
 ## Configuration will not load or save
 

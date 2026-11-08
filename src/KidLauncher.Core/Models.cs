@@ -61,7 +61,6 @@ namespace KidLauncher.Core
         public string ReadinessFile { get; set; } = "";
         public int MountTimeoutMs { get; set; } = 10000;
         public bool UnmountAfterExit { get; set; } = true;
-        public bool RestorePreviousImage { get; set; }
     }
 
     public sealed class DisplayMode
@@ -87,7 +86,6 @@ namespace KidLauncher.Core
         public DisplayMode OriginalDisplay { get; set; }
         public DiscSettings Disc { get; set; }
         public bool DiscChanged { get; set; }
-        public string PreviousImage { get; set; }
         public bool ProcessStartPending { get; set; }
         public List<string> ProcessNames { get; set; } = new List<string>();
         public List<TrackedProcess> Processes { get; set; } = new List<TrackedProcess>();

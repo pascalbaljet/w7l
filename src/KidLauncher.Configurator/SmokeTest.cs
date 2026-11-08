@@ -70,6 +70,16 @@ namespace KidLauncher.Configurator
                 if (indices[i] == 3) Assert(nodes.OfType<TextBox>().Any(), "Virtual drives: editable VCD utility path exists; no drive operation performed.", report);
                 string sibling = stem + "-" + names[i] + ".png"; CaptureWindow(sibling);
                 if (i == 0) CaptureWindow(screenshotPath);
+                if (indices[i] == 0)
+                {
+                    var discNote = nodes.OfType<TextBlock>().Single(t => t.Text.StartsWith("This drive is dedicated to KidLauncher."));
+                    discNote.BringIntoView();
+                    await Dispatcher.InvokeAsync(() => { UpdateLayout(); }, DispatcherPriority.ApplicationIdle);
+                    var bounds = discNote.TransformToAncestor(tabs).TransformBounds(new Rect(discNote.RenderSize));
+                    Assert(bounds.Top >= 0 && bounds.Bottom <= tabs.ActualHeight, "Games: dedicated-drive policy is visible in disc settings.", report);
+                    Assert(!nodes.OfType<CheckBox>().Any(c => (c.Content as string ?? "").StartsWith("Restore previous image")), "Games: obsolete previous-disc restoration option is absent.", report);
+                    CaptureWindow(stem + "-Games-Disc.png");
+                }
                 if (indices[i] == 2)
                 {
                     var changePin = nodes.OfType<Button>().Single(b => Equals(b.Content, "Change PIN"));
