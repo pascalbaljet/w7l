@@ -5,5 +5,6 @@
   <ItemGroup>
     <ProjectReference Include="../../src/KidLauncher.Core/KidLauncher.Core.csproj" />
     <Reference Include="System.Web.Extensions" />
+    <Reference Include="System.Windows.Forms" />
   </ItemGroup>
 </Project>

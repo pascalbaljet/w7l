@@ -182,15 +182,28 @@ namespace KidLauncher.E2E
                 var neighbor = Find(room, ControlType.Button, Stubborn);
                 var resting = tile.Current.BoundingRectangle;
                 var neighborResting = neighbor.Current.BoundingRectangle;
-                Move(tile); Thread.Sleep(250);
-                Check(tile.Current.BoundingRectangle.Width > resting.Width * 1.02 && neighbor.Current.BoundingRectangle == neighborResting,
-                    "hover enlarges only the pointed tile without moving its neighbor");
+                // Sample just outside the fixed button target. The decorative
+                // tile grows into that margin without changing input geometry.
+                Func<string, float> edgeBrightness = name =>
+                {
+                    var screen = System.Windows.Forms.SystemInformation.VirtualScreen;
+                    using (var image = new System.Drawing.Bitmap(Path.Combine(output, name)))
+                        return image.GetPixel((int)resting.Left - 1 - screen.Left,
+                            (int)(resting.Top + resting.Height / 2) - screen.Top).GetBrightness();
+                };
+                float restingEdge = edgeBrightness("02-launcher-ready.png");
+                Move(tile); Thread.Sleep(400);
+                Check(tile.Current.BoundingRectangle == resting && neighbor.Current.BoundingRectangle == neighborResting,
+                    "hover keeps both the pointed tile's hit target and its neighbor fixed");
                 var pointer = Desktop.CursorSize();
                 Check(pointer.Width >= 48 && pointer.Height >= 64, "launcher uses a large native pointer over tiles");
                 Desktop.Capture(Path.Combine(output, "02-launcher-hover.png"));
-                Move(neighbor); Thread.Sleep(250);
-                Check(Math.Abs(tile.Current.BoundingRectangle.Width - resting.Width) < 1, "tile returns to its resting size after pointer leaves");
+                Check(edgeBrightness("02-launcher-hover.png") > restingEdge + 0.15,
+                    "hover visibly enlarges and highlights the decorative tile beyond its fixed hit target");
+                Move(neighbor); Thread.Sleep(400);
                 Desktop.Capture(Path.Combine(output, "02-neighbor-hover.png"));
+                Check(Math.Abs(edgeBrightness("02-neighbor-hover.png") - restingEdge) < 0.02,
+                    "tile decoration returns to its resting size after pointer leaves");
                 Play(room, launcher, Cooperative, normalEvents, false, unrelated, originalMode);
                 Play(room, launcher, Stubborn, stubbornEvents, true, unrelated, originalMode);
                 File.Delete(missing);

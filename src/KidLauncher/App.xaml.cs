@@ -50,6 +50,9 @@ namespace KidLauncher
                     store.Save(sample);
                 }
                 Log = new FileLog(store.DataDirectory);
+                using (var identity = System.Security.Principal.WindowsIdentity.GetCurrent())
+                    Log.Write("Launcher build=" + typeof(App).Assembly.ManifestModule.ModuleVersionId + "; OS=" + Environment.OSVersion +
+                        "; elevated=" + new System.Security.Principal.WindowsPrincipal(identity).IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator));
                 var window = new MainWindow(store, Log, smoke);
                 MainWindow = window;
                 if (smoke) window.ContentRendered += (sender, args) => window.Dispatcher.BeginInvoke(new Action(() =>

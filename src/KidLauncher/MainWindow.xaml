@@ -5,6 +5,14 @@
  WindowState="Maximized" WindowStartupLocation="CenterScreen" Background="#14233B"
  ShowInTaskbar="False" FontFamily="Segoe UI" Foreground="White">
  <Grid x:Name="Backdrop">
+  <Grid x:Name="BackdropAccents" IsHitTestVisible="False" ClipToBounds="True">
+   <Ellipse Width="850" Height="700" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="-260,-330,0,0">
+    <Ellipse.Fill><RadialGradientBrush><GradientStop Color="#183DDACB" Offset="0"/><GradientStop Color="#003DDACB" Offset="1"/></RadialGradientBrush></Ellipse.Fill>
+   </Ellipse>
+   <Ellipse Width="900" Height="750" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-300,-400">
+    <Ellipse.Fill><RadialGradientBrush><GradientStop Color="#1EFFCF7A" Offset="0"/><GradientStop Color="#00FFCF7A" Offset="1"/></RadialGradientBrush></Ellipse.Fill>
+   </Ellipse>
+  </Grid>
   <Grid Margin="36,20,36,20" x:Name="PlayRoom">
    <Grid.RowDefinitions><RowDefinition/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
    <UniformGrid x:Name="Tiles" Columns="4" Rows="3" />
@@ -15,7 +23,9 @@
   </Grid>
   <Border x:Name="Overlay" Background="#F214233B" Visibility="Visible">
    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="780" Margin="40">
-    <TextBlock x:Name="OverlaySymbol" Text="★" Foreground="#FFD477" FontSize="90" HorizontalAlignment="Center" />
+    <TextBlock x:Name="OverlaySymbol" Text="★" Foreground="#FFD477" FontSize="90" HorizontalAlignment="Center" RenderTransformOrigin="0.5,0.5">
+     <TextBlock.RenderTransform><TransformGroup><ScaleTransform/><RotateTransform/></TransformGroup></TextBlock.RenderTransform>
+    </TextBlock>
     <TextBlock x:Name="OverlayTitle" Text="Even geduld…" FontSize="42" FontWeight="Bold" TextAlignment="Center" TextWrapping="Wrap" Margin="0,18,0,12" />
     <TextBlock x:Name="OverlayMessage" Text="Je avonturen komen eraan." FontSize="24" TextAlignment="Center" TextWrapping="Wrap" />
     <Button x:Name="ReturnButton" Content="Terug naar mijn spelletjes" Visibility="Collapsed" Margin="0,30,0,0" Click="Return_Click" />

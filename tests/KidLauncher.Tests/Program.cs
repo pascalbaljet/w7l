@@ -13,6 +13,7 @@ namespace KidLauncher.Tests
 {
     internal static class Program
     {
+        [STAThread]
         private static int Main(string[] args)
         {
             if (args.Contains("--process-fixture")) { Thread.Sleep(30000); return 0; }
@@ -22,7 +23,7 @@ namespace KidLauncher.Tests
                 DisabledForceExitKeepsResources, LegacyDiscRestorationSettingIsIgnored, WindowsProcessIdentity,
                 FutureSchemaCannotBeOverwritten, DiscRecoveryIsIdempotent, RecoveryFindsUnrecordedChild,
                 ReportingFailureDoesNotLockSession, UncertainStartRequiresAdultRecovery, SelectedProcessNamesLeaveHelpersAlone,
-                WindowsShortcutLaunch, WindowsDisplayRejectsMismatchedNativeMode };
+                WindowsShortcutLaunch, WindowsDisplayRejectsMismatchedNativeMode, WindowsHotkeySurvivesBusyUi };
             int failed = 0;
             foreach (var test in tests)
             {
@@ -34,6 +35,60 @@ namespace KidLauncher.Tests
         }
 
         private static void Assert(bool condition, string message) { if (!condition) throw new Exception(message); }
+        private static void WindowsHotkeySurvivesBusyUi()
+        {
+            int calls = 0, uiThread = Thread.CurrentThread.ManagedThreadId;
+            using (var form = new System.Windows.Forms.Form())
+            using (var hotkey = new WindowsHotkey(form.Handle, 0x75, () =>
+            {
+                Assert(Thread.CurrentThread.ManagedThreadId == uiThread, "Exit callback left the caller's UI thread.");
+                calls++;
+            }))
+            {
+                Action<int> pump = milliseconds =>
+                {
+                    var elapsed = System.Diagnostics.Stopwatch.StartNew();
+                    while (elapsed.ElapsedMilliseconds < milliseconds)
+                    {
+                        System.Windows.Forms.Application.DoEvents();
+                        Thread.Sleep(10);
+                    }
+                };
+                hotkey.Enabled = true;
+                SendKey(0x76); pump(200);
+                Assert(calls == 0, "F7 fired the configured F6 callback.");
+                var input = Task.Run(() => { Thread.Sleep(100); SendKey(0x75); });
+                // Longer than Windows 7's default hook timeout. A hook/poll timer
+                // on this UI thread misses a short press while WMI/startup is busy.
+                Thread.Sleep(1800);
+                Complete(input);
+                Assert(calls == 0, "Exit callback executed inside the input detector thread.");
+                pump(300);
+                Assert(calls == 1, "A short F6 during a busy UI must be delivered exactly once afterwards.");
+                hotkey.Enabled = false;
+                SendKey(0x75); pump(200);
+                Assert(calls == 1, "Disabled hotkey still fired.");
+                hotkey.Enabled = true;
+                SendKey(0x75); pump(300);
+                Assert(calls == 2, "F6 stopped working after disabling and re-enabling the listener.");
+            }
+        }
+
+        // This suite's runtime contract requires x86; native INPUT is 28 bytes.
+        [StructLayout(LayoutKind.Explicit, Size = 28)]
+        private struct KeyInput
+        {
+            [FieldOffset(0)] public uint Type;
+            [FieldOffset(4)] public ushort Key;
+            [FieldOffset(12)] public uint Flags;
+        }
+        private static void SendKey(ushort key)
+        {
+            var inputs = new[] { new KeyInput { Type = 1, Key = key }, new KeyInput { Type = 1, Key = key, Flags = 2 } };
+            Assert(SendInput(2, inputs, Marshal.SizeOf(typeof(KeyInput))) == 2, "Windows did not accept the test key press.");
+        }
+        [DllImport("user32.dll", SetLastError = true)] private static extern uint SendInput(uint count, KeyInput[] inputs, int size);
+
         private static void Throws(Action action)
         {
             bool thrown = false; try { action(); } catch { thrown = true; }

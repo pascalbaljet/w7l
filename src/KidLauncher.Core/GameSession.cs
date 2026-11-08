@@ -140,8 +140,12 @@ namespace KidLauncher.Core
                 session.ProcessStartPending = false;
                 recovery.Save(session);
                 Report("Process started: " + initial.Name + " PID " + initial.Id);
-                Report("Display after process start: " + display.Capture());
+                Report("Exit settings: key=" + configuration.Controls.ExitVirtualKey + "; automatic force exit=" + game.AutomaticForceExit +
+                    "; force timeout=" + game.GracefulExitTimeoutMs + "ms; requested elevation=" + game.RunAsAdministrator);
+                var lastDisplay = display.Capture();
+                Report("Display after process start: " + lastDisplay);
                 var startup = Stopwatch.StartNew();
+                long nextDisplayCheck = 500;
                 Stopwatch exitTimer = null;
                 var closeRequested = new HashSet<string>();
                 while (true)
@@ -157,6 +161,28 @@ namespace KidLauncher.Core
                     }
                     var alive = session.Processes.Where(processes.IsAlive).ToList();
                     if (alive.Count == 0 && startup.ElapsedMilliseconds >= game.StartupGraceMs) break;
+                    if (game.Resolution != null && startup.ElapsedMilliseconds >= nextDisplayCheck)
+                    {
+                        try
+                        {
+                            var currentDisplay = display.Capture();
+                            if (currentDisplay.Width != lastDisplay.Width || currentDisplay.Height != lastDisplay.Height ||
+                                currentDisplay.BitsPerPixel != lastDisplay.BitsPerPixel || currentDisplay.Frequency != lastDisplay.Frequency)
+                            {
+                                Report("Display changed during game at " + startup.ElapsedMilliseconds + "ms: " + lastDisplay +
+                                    " -> " + currentDisplay + "; configured mode=" + game.Resolution);
+                                lastDisplay = currentDisplay;
+                            }
+                            nextDisplayCheck = startup.ElapsedMilliseconds + 500;
+                        }
+                        catch (Exception error)
+                        {
+                            // Diagnostics must not interrupt a running game or try
+                            // to restore the desktop while it still owns the screen.
+                            Report("Display monitoring unavailable: " + error.Message);
+                            nextDisplayCheck = long.MaxValue;
+                        }
+                    }
                     if (exitRequested || cancellationToken.IsCancellationRequested)
                     {
                         if (exitTimer == null) { exitTimer = Stopwatch.StartNew(); Report("Exit requested; attempting graceful shutdown."); }

@@ -55,6 +55,7 @@ namespace KidLauncher
             this.store = store;
             this.log = log;
             this.smokeTest = smokeTest;
+            Overlay.IsVisibleChanged += (s, e) => AnimateOverlayStar();
             SourceInitialized += (s, e) => { Topmost = true; };
             Loaded += async (s, e) =>
             {
@@ -171,8 +172,11 @@ namespace KidLauncher
             Backdrop.Background = background;
             var wallpaper = LoadArtwork(a.BackgroundImage, null);
             if (wallpaper != null) Backdrop.Background = new ImageBrush(wallpaper) { Stretch = Stretch.UniformToFill };
+            // A configured wallpaper is always left untouched, even if it could not load.
+            BackdropAccents.Visibility = string.IsNullOrWhiteSpace(a.BackgroundImage) ? Visibility.Visible : Visibility.Collapsed;
             Tiles.Children.Clear();
             foreach (var game in games.Skip(page * pageSize).Take(pageSize)) Tiles.Children.Add(CreateTile(game));
+            AnimateValue(Tiles, UIElement.OpacityProperty, 1, 300, MotionEnabled ? 0.86 : 1);
             Previous.IsEnabled = page > 0;
             Next.IsEnabled = page < count - 1;
             Navigation.Visibility = count > 1 ? Visibility.Visible : Visibility.Collapsed;
@@ -202,40 +206,96 @@ namespace KidLauncher
                 Grid.SetRow(title, 1);
                 layout.Children.Add(title);
             }
+            var scale = new ScaleTransform();
+            var lift = new TranslateTransform();
+            var transforms = new TransformGroup();
+            transforms.Children.Add(scale);
+            transforms.Children.Add(lift);
+            var visual = new Grid { IsHitTestVisible = false, RenderTransformOrigin = new Point(0.5, 0.5), RenderTransform = transforms };
+            var radius = new CornerRadius(Math.Max(0, config.Appearance.CornerRadius));
+            visual.Children.Add(new Border { Background = brush, CornerRadius = radius, Child = layout });
+            var glow = new Border
+            {
+                CornerRadius = radius, Opacity = 0,
+                Background = new LinearGradientBrush(Color.FromArgb(70, 255, 239, 183), Colors.Transparent, 70)
+            };
+            visual.Children.Add(glow);
+            var ring = new Border { CornerRadius = radius, BorderBrush = new SolidColorBrush(Color.FromRgb(255, 220, 139)), BorderThickness = new Thickness(3), Opacity = 0 };
+            visual.Children.Add(ring);
+            var sparkleLift = new TranslateTransform();
+            var sparkle = new TextBlock
+            {
+                Text = "✦", FontSize = 30, Foreground = new SolidColorBrush(Color.FromRgb(255, 232, 164)),
+                HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top,
+                Margin = new Thickness(0, 10, 16, 0), Opacity = 0, RenderTransform = sparkleLift
+            };
+            visual.Children.Add(sparkle);
             var button = new Button
             {
-                Content = layout, Background = brush, Padding = new Thickness(0),
+                Content = visual, Background = Brushes.Transparent, Padding = new Thickness(0),
                 Margin = new Thickness(Math.Max(0, config.Appearance.Spacing) / 2.0),
-                RenderTransformOrigin = new Point(0.5, 0.5), RenderTransform = new ScaleTransform(1, 1),
+                FocusVisualStyle = null,
                 HorizontalContentAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Stretch
             };
-            // Tile template stretches the artwork while the navigation template stays compact.
+            // The transparent template remains the fixed hit target. Only its decorative
+            // content moves, so hovering an edge never moves the target out from under it.
             var border = new FrameworkElementFactory(typeof(Border));
-            border.SetValue(Border.CornerRadiusProperty, new CornerRadius(Math.Max(0, config.Appearance.CornerRadius)));
-            border.SetValue(Border.BackgroundProperty, brush);
-            border.SetValue(Border.ClipToBoundsProperty, true);
-            var presenter = new FrameworkElementFactory(typeof(ContentPresenter));
+            border.SetValue(Border.BackgroundProperty, Brushes.Transparent);
+            var presenter = new FrameworkElementFactory(typeof(ContentPresenter), "TileContent");
             border.AppendChild(presenter);
-            button.Template = new ControlTemplate(typeof(Button)) { VisualTree = border };
-            var scale = (ScaleTransform)button.RenderTransform;
-            Action<bool> animateHover = entered =>
+            var template = new ControlTemplate(typeof(Button)) { VisualTree = border };
+            var pressed = new Trigger { Property = Button.IsPressedProperty, Value = true };
+            pressed.Setters.Add(new Setter(UIElement.OpacityProperty, 0.78, "TileContent"));
+            template.Triggers.Add(pressed);
+            var disabled = new Trigger { Property = UIElement.IsEnabledProperty, Value = false };
+            disabled.Setters.Add(new Setter(UIElement.OpacityProperty, 0.45, "TileContent"));
+            template.Triggers.Add(disabled);
+            button.Template = template;
+            Action twinkle = () =>
             {
-                // Render-only scaling keeps grid cells and neighboring targets fixed.
-                double target = entered ? 1.035 : 1;
-                var animation = new DoubleAnimation(target, TimeSpan.FromMilliseconds(160)) {
-                    EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
-                };
-                scale.BeginAnimation(ScaleTransform.ScaleXProperty, animation);
-                scale.BeginAnimation(ScaleTransform.ScaleYProperty, animation);
-                Panel.SetZIndex(button, entered ? 1 : 0);
+                if (!MotionEnabled || !button.IsEnabled) return;
+                var flash = new DoubleAnimationUsingKeyFrames { Duration = TimeSpan.FromMilliseconds(540), FillBehavior = FillBehavior.Stop };
+                flash.KeyFrames.Add(new LinearDoubleKeyFrame(0, KeyTime.FromPercent(0)));
+                flash.KeyFrames.Add(new EasingDoubleKeyFrame(0.95, KeyTime.FromPercent(0.22), new QuadraticEase { EasingMode = EasingMode.EaseOut }));
+                flash.KeyFrames.Add(new EasingDoubleKeyFrame(0, KeyTime.FromPercent(1), new QuadraticEase { EasingMode = EasingMode.EaseIn }));
+                sparkle.BeginAnimation(UIElement.OpacityProperty, flash);
+                AnimateValue(sparkleLift, TranslateTransform.YProperty, -8, 540, 3);
             };
-            button.MouseEnter += (s, e) => animateHover(true);
-            button.PreviewMouseLeftButtonDown += (s, e) => button.Opacity = 0.62;
-            button.PreviewMouseLeftButtonUp += (s, e) => button.Opacity = 1;
-            button.MouseLeave += (s, e) => { button.Opacity = 1; animateHover(false); };
+            bool highlighted = false;
+            Action updateFeedback = () =>
+            {
+                bool active = button.IsEnabled && (button.IsMouseOver || button.IsKeyboardFocusWithin);
+                if (active && !highlighted) twinkle();
+                highlighted = active;
+                AnimateValue(scale, ScaleTransform.ScaleXProperty, active ? 1.03 : 1, active ? 260 : 180, spring: active);
+                AnimateValue(scale, ScaleTransform.ScaleYProperty, active ? 1.03 : 1, active ? 260 : 180, spring: active);
+                AnimateValue(lift, TranslateTransform.YProperty, active ? -3 : 0, active ? 260 : 180, spring: active);
+                AnimateValue(glow, UIElement.OpacityProperty, active ? 1 : 0, 180);
+                AnimateValue(ring, UIElement.OpacityProperty, active ? 1 : 0, 180);
+                Panel.SetZIndex(button, active ? 1 : 0);
+                if (!button.IsEnabled) sparkle.BeginAnimation(UIElement.OpacityProperty, null);
+            };
+            button.MouseEnter += (s, e) => updateFeedback();
+            button.MouseLeave += (s, e) => updateFeedback();
+            button.IsKeyboardFocusWithinChanged += (s, e) => updateFeedback();
+            button.IsEnabledChanged += (s, e) => updateFeedback();
             AutomationProperties.SetName(button, game.Title);
-            button.Click += async (s, e) => await LaunchAsync(game);
+            button.Click += async (s, e) => { twinkle(); await LaunchAsync(game); };
             return button;
+        }
+
+        private bool MotionEnabled => !smokeTest && SystemParameters.ClientAreaAnimation;
+
+        private void AnimateValue(DependencyObject target, DependencyProperty property, double value, int milliseconds, double? from = null, bool spring = false)
+        {
+            double start = from ?? (double)target.GetValue(property);
+            target.SetValue(property, value);
+            ((IAnimatable)target).BeginAnimation(property, MotionEnabled ? new DoubleAnimation(start, value, TimeSpan.FromMilliseconds(milliseconds))
+            {
+                EasingFunction = spring ? (IEasingFunction)new BackEase { Amplitude = 0.25, EasingMode = EasingMode.EaseOut }
+                    : new QuadraticEase { EasingMode = EasingMode.EaseOut },
+                FillBehavior = FillBehavior.Stop
+            } : null);
         }
 
         private async Task LaunchAsync(Game game)
@@ -306,7 +366,37 @@ namespace KidLauncher
             OverlayMessage.Text = message;
             ReturnButton.Visibility = canReturn ? Visibility.Visible : Visibility.Collapsed;
             Overlay.Visibility = Visibility.Visible;
+            AnimateOverlayStar();
             Mouse.OverrideCursor = null;
+        }
+
+        private void AnimateOverlayStar()
+        {
+            var transforms = (TransformGroup)OverlaySymbol.RenderTransform;
+            var scale = (ScaleTransform)transforms.Children[0];
+            var rotation = (RotateTransform)transforms.Children[1];
+            scale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+            scale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+            rotation.BeginAnimation(RotateTransform.AngleProperty, null);
+            // A short greeting, never an endless spinner; errors remain calm and still.
+            if (!MotionEnabled || !Overlay.IsVisible || ReturnButton.Visibility == Visibility.Visible) return;
+            var pulse = new DoubleAnimation(1, 1.09, TimeSpan.FromMilliseconds(600))
+            {
+                AutoReverse = true, RepeatBehavior = new RepeatBehavior(2), FillBehavior = FillBehavior.Stop,
+                EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut }
+            };
+            scale.BeginAnimation(ScaleTransform.ScaleXProperty, pulse);
+            scale.BeginAnimation(ScaleTransform.ScaleYProperty, pulse);
+            var sway = new DoubleAnimationUsingKeyFrames
+            {
+                Duration = TimeSpan.FromMilliseconds(1200), RepeatBehavior = new RepeatBehavior(2), FillBehavior = FillBehavior.Stop
+            };
+            var ease = new SineEase { EasingMode = EasingMode.EaseInOut };
+            sway.KeyFrames.Add(new LinearDoubleKeyFrame(0, KeyTime.FromPercent(0)));
+            sway.KeyFrames.Add(new EasingDoubleKeyFrame(-6, KeyTime.FromPercent(0.25), ease));
+            sway.KeyFrames.Add(new EasingDoubleKeyFrame(6, KeyTime.FromPercent(0.75), ease));
+            sway.KeyFrames.Add(new EasingDoubleKeyFrame(0, KeyTime.FromPercent(1), ease));
+            rotation.BeginAnimation(RotateTransform.AngleProperty, sway);
         }
 
         private void Error(string title, Exception ex)
