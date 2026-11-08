@@ -92,6 +92,27 @@ namespace KidLauncher.E2E
             ConfigureGame(settings, Cooperative, fixture, normalEvents, false);
             ConfigureGame(settings, Stubborn, fixture, stubbornEvents, true);
             ConfigureGame(settings, Missing, missing, Path.Combine(output, "missing.events"), false);
+            if (!negativeControl)
+            {
+                Invoke(settings, "Save configuration");
+                Until(() => Games().Length == 3, "games saved before testing PIN-free exit");
+                Close(configurator, settings);
+                var noPinLauncher = Start("KidLauncher.exe");
+                var noPinRoom = Window(noPinLauncher, "KidLauncher");
+                Ready(noPinRoom, noPinLauncher);
+                using (new DesktopRecording(Path.Combine(output, "pin-free-frames")))
+                {
+                    Desktop.Activate(Handle(noPinRoom));
+                    Desktop.Chord(0x11, 0x12, 0x53);
+                    var adult = Window(noPinLauncher, "Grown-up controls");
+                    Desktop.Capture(Path.Combine(output, "00-pin-free-exit.png"));
+                    Click(Find(adult, ControlType.Button, "Exit launcher to Windows"));
+                    Until(() => noPinLauncher.HasExited, "launcher without a configured PIN exits through the adult menu");
+                }
+                configurator = Start("KidLauncher.Configurator.exe");
+                settings = Window(configurator, "KidLauncher · Parent configurator");
+                ((WindowPattern)settings.GetCurrentPattern(WindowPattern.Pattern)).SetWindowVisualState(WindowVisualState.Maximized);
+            }
             ((SelectionItemPattern)Find(settings, ControlType.TabItem, "Controls").GetCurrentPattern(SelectionItemPattern.Pattern)).Select();
             if (negativeControl)
             {
@@ -149,14 +170,27 @@ namespace KidLauncher.E2E
             Until(() => File.Exists(Path.Combine(output, "unrelated.events")), "unrelated same-name control process starts");
             string originalMode = Desktop.DisplayMode();
             var launcher = Start("KidLauncher.exe");
-            var room = Window(launcher, negativeControl ? "KidLauncher · Let's play" : "KidLauncher · Spelen maar");
+            var room = Window(launcher, "KidLauncher");
             Ready(room, launcher);
-            Find(room, ControlType.Text, negativeControl ? "Pick an adventure" : "Kies een avontuur");
+            Check(FindNow(room, ControlType.Text, "Kies een avontuur") == null && FindNow(room, ControlType.Text, "SPELEN MAAR") == null &&
+                FindNow(room, ControlType.Button, "Vorige pagina")?.Current.IsOffscreen != false, "single-page launcher has only game tiles, without headings or page controls");
+            Desktop.MovePointer(4, 4); Thread.Sleep(250);
             Desktop.Capture(Path.Combine(output, "02-launcher-ready.png"));
             using (new DesktopRecording(Path.Combine(output, "frames")))
             {
-                // Pass over the neighboring tile before clicking the intended game.
-                Move(Find(room, ControlType.Button, Stubborn));
+                var tile = Find(room, ControlType.Button, Cooperative);
+                var neighbor = Find(room, ControlType.Button, Stubborn);
+                var resting = tile.Current.BoundingRectangle;
+                var neighborResting = neighbor.Current.BoundingRectangle;
+                Move(tile); Thread.Sleep(250);
+                Check(tile.Current.BoundingRectangle.Width > resting.Width * 1.02 && neighbor.Current.BoundingRectangle == neighborResting,
+                    "hover enlarges only the pointed tile without moving its neighbor");
+                var pointer = Desktop.CursorSize();
+                Check(pointer.Width >= 48 && pointer.Height >= 64, "launcher uses a large native pointer over tiles");
+                Desktop.Capture(Path.Combine(output, "02-launcher-hover.png"));
+                Move(neighbor); Thread.Sleep(250);
+                Check(Math.Abs(tile.Current.BoundingRectangle.Width - resting.Width) < 1, "tile returns to its resting size after pointer leaves");
+                Desktop.Capture(Path.Combine(output, "02-neighbor-hover.png"));
                 Play(room, launcher, Cooperative, normalEvents, false, unrelated, originalMode);
                 Play(room, launcher, Stubborn, stubbornEvents, true, unrelated, originalMode);
                 File.Delete(missing);

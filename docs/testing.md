@@ -13,7 +13,9 @@ Start with a disposable game or a game with saved progress backed up. Keep a key
 - [ ] Artwork preserves its aspect ratio and missing artwork has a usable fallback.
 - [ ] Thirteen games produce another page. Arrows and mouse wheel work, and the page is preserved after playing.
 - [ ] Idle cursor hiding and immediate return on mouse movement work.
-- [ ] Ctrl+Alt+S requires the correct PIN. Settings and adult exit are not exposed as child controls.
+- [ ] The pointer is large over every tile. Hover gently enlarges one tile without moving its neighbors and reverses when the pointer leaves.
+- [ ] The game grid has no decorative headings or page text. Page arrows appear only for multiple pages.
+- [ ] Ctrl+Alt+S requires the correct PIN when configured. Without a PIN, it opens the adult menu and permits exit to Windows.
 - [ ] Import previews user and public Desktop shortcuts, including arguments and working directory. Only selected shortcuts are imported.
 - [ ] Add, duplicate, remove, hide, reorder, crop artwork, appearance preview, and save work without editing JSON.
 - [ ] Autostart opens the fullscreen launcher after login and can be disabled again.

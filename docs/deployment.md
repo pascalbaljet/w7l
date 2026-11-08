@@ -34,7 +34,7 @@ For a different local directory, run Setup with `--install-dir "D:\Games\KidLaun
 8. Open `KidLauncher.exe` and select one game.
 9. Press F6 once. Check that the game exits and the launcher returns at the original resolution.
 
-The hidden adult shortcut is Ctrl+Alt+S. Adult access requires the PIN set in the configurator. Keep a copy of the original portable build and your configured data before updating.
+The hidden adult shortcut is Ctrl+Alt+S. Select **Exit launcher to Windows** to close the launcher. If a PIN is configured, adult access requires that PIN. Without a PIN, the adult menu opens directly. Keep a copy of the original portable build and your configured data before updating.
 
 The children's launcher defaults to Dutch, including when an older configuration has no language setting. To select English, choose **General → Children's launcher language → English**, save, and reopen the launcher. The configurator and adult dialogs stay in English.
 

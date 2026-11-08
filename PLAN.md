@@ -609,7 +609,7 @@ Provide a hidden method for opening adult settings.
 
 This may be a keyboard combination or a hidden corner interaction.
 
-Protect entry using a PIN.
+Protect entry using a PIN when one is configured. Without a PIN, the hidden shortcut opens the adult menu directly and permits exit to Windows.
 
 Do not store the PIN in plaintext.
 

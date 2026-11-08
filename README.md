@@ -12,6 +12,8 @@ For a portable installation, download `KidLauncher-win7-x86.zip` instead and ext
 
 The children's launcher defaults to Dutch. To select English, open **General → Children's launcher language** in the configurator, save, and reopen the launcher. The configurator stays in English.
 
+The game grid has a large pointer and gentle hover zoom, without headings or page text. Page arrows appear only when needed. Press **Ctrl+Alt+S**, then choose **Exit launcher to Windows** to close it. If a PIN is configured, enter it first. Without a PIN, the adult menu opens directly.
+
 Read the [deployment guide](docs/deployment.md) before testing with installed games. Windows CI compilation and automated tests do not establish Windows 7, fullscreen-game, or Virtual CloneDrive compatibility. Use the [real-machine checklist](docs/testing.md) to record those results.
 
 ## Build from source
@@ -26,7 +28,7 @@ The solution also compiles against framework reference assemblies in a Linux orb
 
 Use an unlocked Windows desktop with no other KidLauncher instance running. Install `ffmpeg` on `PATH`. After `scripts/build.ps1`, run `scripts/e2e.ps1` from PowerShell. Do not use the mouse or keyboard during the run.
 
-The positive journey installs the actual Setup executable into a disposable directory. It configures games, language, and a PIN through the GUI, then reopens the configurator to check persistence. Real mouse and keyboard input launches a test game and requests one-press F6 shutdown. The tests cover graceful and forced shutdown, an unrelated same-name process, a missing executable, PIN rejection, and authorized desktop exit. A separate portable negative control configures F7 and must fail specifically when F6 cannot close the game.
+The positive journey installs the actual Setup executable into a disposable directory. It configures games, language, and a PIN through the GUI, then reopens the configurator to check persistence. Real mouse and keyboard input checks hover zoom and the native pointer, launches a test game, and requests one-press F6 shutdown. The tests cover graceful and forced shutdown, an unrelated same-name process, a missing executable, PIN-free exit, and PIN rejection and acceptance. A separate portable negative control configures F7 and must fail specifically when F6 cannot close the game.
 
 `scripts/installer-test.ps1` checks fresh installation and an update over existing configuration, recovery state, logs, artwork, disc images, backups, and unrelated files. It compares their SHA-256 hashes and checks that an old application binary gets replaced. It also exercises the real Setup window. Run it on an elevated, unlocked Windows desktop. CI retains screenshots and a recording in **Installer-evidence**.
 

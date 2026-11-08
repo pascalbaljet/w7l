@@ -7,5 +7,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\KidLauncher.Core\KidLauncher.Core.csproj" />
+    <Resource Include="Pointer.cur" />
   </ItemGroup>
 </Project>

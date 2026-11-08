@@ -21,6 +21,21 @@ namespace KidLauncher.E2E
 
         public static bool Visible(IntPtr hwnd) { return IsWindowVisible(hwnd); }
 
+        public static Size CursorSize()
+        {
+            var cursor = new CursorInfo { Size = Marshal.SizeOf(typeof(CursorInfo)) };
+            if (!GetCursorInfo(ref cursor) || !GetIconInfo(cursor.Cursor, out var info)) throw NativeError("Read cursor size");
+            try
+            {
+                using (var bitmap = Bitmap.FromHbitmap(info.Color)) return bitmap.Size;
+            }
+            finally
+            {
+                if (info.Mask != IntPtr.Zero) DeleteObject(info.Mask);
+                if (info.Color != IntPtr.Zero) DeleteObject(info.Color);
+            }
+        }
+
         public static void MovePointer(int x, int y)
         {
             Point start;

@@ -13,6 +13,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using KidLauncher.Core;
@@ -24,6 +25,7 @@ namespace KidLauncher
         private readonly ConfigurationStore store;
         private readonly ILog log;
         private readonly DispatcherTimer idleTimer;
+        private readonly Cursor childCursor;
         private LauncherConfiguration config;
         private GameSession session;
         private WindowsHotkey hotkey;
@@ -46,6 +48,10 @@ namespace KidLauncher
         public MainWindow(ConfigurationStore store, ILog log, bool smokeTest = false)
         {
             InitializeComponent();
+            using (var resource = Application.GetResourceStream(new Uri("pack://application:,,,/Pointer.cur")).Stream)
+                childCursor = new Cursor(resource);
+            Cursor = childCursor;
+            ForceCursor = true;
             this.store = store;
             this.log = log;
             this.smokeTest = smokeTest;
@@ -64,7 +70,7 @@ namespace KidLauncher
             };
             Microsoft.Win32.SystemEvents.DisplaySettingsChanged += DisplaySettingsChanged;
             Closing += OnClosing;
-            Closed += (s, e) => Application.Current.Shutdown();
+            Closed += (s, e) => { childCursor.Dispose(); Application.Current.Shutdown(); };
             PreviewKeyDown += OnKeyDown;
             PreviewMouseMove += (s, e) => { lastMove = DateTime.UtcNow; Mouse.OverrideCursor = null; };
             PreviewMouseWheel += (s, e) =>
@@ -121,9 +127,6 @@ namespace KidLauncher
 
         private void ApplyLanguage()
         {
-            Title = L("KidLauncher · Let's play", "KidLauncher · Spelen maar");
-            PlayHeading.Text = L("LET'S PLAY", "SPELEN MAAR");
-            PlaySubtitle.Text = L("Pick an adventure", "Kies een avontuur");
             ReturnButton.Content = L("Back to my games", "Terug naar mijn spelletjes");
             AutomationProperties.SetName(Previous, L("Previous page", "Vorige pagina"));
             AutomationProperties.SetName(Next, L("Next page", "Volgende pagina"));
@@ -172,12 +175,7 @@ namespace KidLauncher
             foreach (var game in games.Skip(page * pageSize).Take(pageSize)) Tiles.Children.Add(CreateTile(game));
             Previous.IsEnabled = page > 0;
             Next.IsEnabled = page < count - 1;
-            PageLabel.Text = games.Count == 0 ? L("Adventures are on their way", "Je avonturen komen eraan") :
-                L("Page ", "Pagina ") + (page + 1) + L(" of ", " van ") + count;
-            PageDots.Children.Clear();
-            // A bounded dot strip stays legible even with very large game collections.
-            for (int i = Math.Max(0, page - 4); i < Math.Min(count, page + 5); i++)
-                PageDots.Children.Add(new System.Windows.Shapes.Ellipse { Width = 9, Height = 9, Margin = new Thickness(4, 0, 4, 0), Fill = i == page ? Brushes.Turquoise : Brushes.SlateGray });
+            Navigation.Visibility = count > 1 ? Visibility.Visible : Visibility.Collapsed;
             if (games.Count == 0)
             {
                 var empty = new TextBlock { Text = L("★\nReady for new adventures!\nAsk a grown-up to add your games.", "★\nKlaar voor nieuwe avonturen!\nVraag een volwassene om je spelletjes toe te voegen."), FontSize = 28, TextAlignment = TextAlignment.Center, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
@@ -208,6 +206,7 @@ namespace KidLauncher
             {
                 Content = layout, Background = brush, Padding = new Thickness(0),
                 Margin = new Thickness(Math.Max(0, config.Appearance.Spacing) / 2.0),
+                RenderTransformOrigin = new Point(0.5, 0.5), RenderTransform = new ScaleTransform(1, 1),
                 HorizontalContentAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Stretch
             };
             // Tile template stretches the artwork while the navigation template stays compact.
@@ -218,9 +217,22 @@ namespace KidLauncher
             var presenter = new FrameworkElementFactory(typeof(ContentPresenter));
             border.AppendChild(presenter);
             button.Template = new ControlTemplate(typeof(Button)) { VisualTree = border };
+            var scale = (ScaleTransform)button.RenderTransform;
+            Action<bool> animateHover = entered =>
+            {
+                // Render-only scaling keeps grid cells and neighboring targets fixed.
+                double target = entered ? 1.035 : 1;
+                var animation = new DoubleAnimation(target, TimeSpan.FromMilliseconds(160)) {
+                    EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
+                };
+                scale.BeginAnimation(ScaleTransform.ScaleXProperty, animation);
+                scale.BeginAnimation(ScaleTransform.ScaleYProperty, animation);
+                Panel.SetZIndex(button, entered ? 1 : 0);
+            };
+            button.MouseEnter += (s, e) => animateHover(true);
             button.PreviewMouseLeftButtonDown += (s, e) => button.Opacity = 0.62;
             button.PreviewMouseLeftButtonUp += (s, e) => button.Opacity = 1;
-            button.MouseLeave += (s, e) => button.Opacity = 1;
+            button.MouseLeave += (s, e) => { button.Opacity = 1; animateHover(false); };
             AutomationProperties.SetName(button, game.Title);
             button.Click += async (s, e) => await LaunchAsync(game);
             return button;
@@ -337,15 +349,15 @@ namespace KidLauncher
                 config.Language = language; page = 0;
                 RenderPage(); Overlay.Visibility = Visibility.Collapsed;
                 string prefix = language == "nl" ? "launcher-" : "launcher-english-";
-                if (PlaySubtitle.Text != (language == "nl" ? "Kies een avontuur" : "Pick an adventure"))
+                if (!ReturnButton.Content.Equals(language == "nl" ? "Terug naar mijn spelletjes" : "Back to my games"))
                     throw new InvalidOperationException("Launcher language did not update.");
                 Capture(directory, prefix + "default.png");
                 Next.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-                if (PageLabel.Text != (language == "nl" ? "Pagina 2 van 2" : "Page 2 of 2") || Tiles.Children.Count != 1)
+                if (page != 1 || Tiles.Children.Count != 1 || Next.IsEnabled || !Previous.IsEnabled)
                     throw new InvalidOperationException("Launcher pagination smoke check failed.");
                 Capture(directory, prefix + "page-2.png");
                 Previous.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-                if (PageLabel.Text != (language == "nl" ? "Pagina 1 van 2" : "Page 1 of 2") || Tiles.Children.Count != 12)
+                if (page != 0 || Tiles.Children.Count != 12 || !Next.IsEnabled || Previous.IsEnabled)
                     throw new InvalidOperationException("Launcher return-page smoke check failed.");
                 ShowOverlay(L("Let's go!", "Daar gaan we!"), L("Opening ", "We starten ") + "Putt-Putt Saves the Zoo…", false);
                 Capture(directory, prefix + "loading.png");
@@ -356,7 +368,7 @@ namespace KidLauncher
                 Capture(directory, prefix + "empty.png");
                 config.Games.ForEach(game => game.Visible = true);
             }
-            File.WriteAllText(Path.Combine(directory, "launcher-checks.txt"), "PASS: Dutch and English headings, pagination, loading, error and empty states rendered. 12 tiles on page 1; 1 on page 2; previous/next Click events update pages.");
+            File.WriteAllText(Path.Combine(directory, "launcher-checks.txt"), "PASS: Dutch and English loading, error and empty states rendered. 12 tiles on page 1; 1 on page 2; previous/next Click events update pages without page text or headings.");
             authorizedExit = true;
         }
 
@@ -375,7 +387,7 @@ namespace KidLauncher
                 host.Measure(new Size(1920, 1080));
                 host.Arrange(new Rect(0, 0, 1920, 1080));
                 host.UpdateLayout();
-                if (!Equals(OverlayTitle.Foreground, Foreground) || !Equals(PlaySubtitle.Foreground, Foreground))
+                if (!Equals(OverlayTitle.Foreground, Foreground))
                     throw new InvalidOperationException("Offscreen capture lost the window text color.");
                 var image = new RenderTargetBitmap(1920, 1080, 96, 96, PixelFormats.Pbgra32);
                 image.Render(Backdrop);
@@ -405,12 +417,7 @@ namespace KidLauncher
             Mouse.OverrideCursor = null;
             try
             {
-                if (config == null || config.Controls == null || string.IsNullOrWhiteSpace(config.Controls.PinHash))
-                {
-                    MessageBox.Show(this, "No adult PIN is configured. Open KidLauncher.Configurator.exe separately to set a PIN in Controls. Settings and desktop exit stay locked until a PIN is set.", "Adult access", MessageBoxButton.OK, MessageBoxImage.Information);
-                    return;
-                }
-                if (!VerifyAdultPin()) return;
+                if (!string.IsNullOrWhiteSpace(config?.Controls?.PinHash) && !VerifyAdultPin()) return;
                 var dialog = AdultWindow("Grown-up controls");
                 dialog.Closing += (s, e) => { if (busy && !authorizedExit) e.Cancel = true; };
                 var panel = new StackPanel { Margin = new Thickness(24) };
