@@ -213,6 +213,21 @@ namespace KidLauncher.E2E
             Check(choices.All(name => !string.IsNullOrWhiteSpace(name)) && choices.Distinct().Count() == choices.Length,
                 "display choices have distinct visible labels");
             Desktop.Capture(Path.Combine(output, "00-display-choices.png"));
+            string selectedMode = choices.LastOrDefault(name => name.StartsWith("640 × 480 /", StringComparison.Ordinal)) ?? choices[1];
+            ((SelectionItemPattern)Find(modes, ControlType.ListItem, selectedMode).GetCurrentPattern(SelectionItemPattern.Pattern)).Select();
+            dropdown.Collapse();
+            modes.SetFocus();
+            using (new DesktopRecording(Path.Combine(output, "resolution-frames")))
+            {
+                Move(modes);
+                Desktop.Wheel(-120);
+                Thread.Sleep(300);
+                string afterWheel = ((SelectionPattern)modes.GetCurrentPattern(SelectionPattern.Pattern)).Current.GetSelection().Single().Current.Name;
+                Log("Display choice before wheel: " + selectedMode + "; after wheel: " + afterWheel);
+                Check(afterWheel == selectedMode, "scrolling over the closed resolution dropdown must not change the selected mode");
+            }
+            dropdown.Expand();
+            ((SelectionItemPattern)Find(modes, ControlType.ListItem, "Use current resolution").GetCurrentPattern(SelectionItemPattern.Pattern)).Select();
             dropdown.Collapse();
             string mode = Desktop.DisplayMode();
             Invoke(settings, "▶ Test game (F6 exits)");

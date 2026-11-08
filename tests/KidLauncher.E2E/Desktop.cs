@@ -47,6 +47,11 @@ namespace KidLauncher.E2E
 
         public static void Key(ushort key) { Chord(key); }
 
+        public static void Wheel(int delta)
+        {
+            Inject(new Input { Data = new InputUnion { Mouse = new MouseInput { Flags = 0x800, MouseData = unchecked((uint)delta) } } });
+        }
+
         public static void Chord(params ushort[] keys)
         {
             if (keys == null) throw new ArgumentNullException(nameof(keys));
