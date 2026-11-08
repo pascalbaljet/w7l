@@ -31,7 +31,7 @@ namespace KidLauncher.E2E
                 });
                 window.Shown += (sender, args) =>
                 {
-                    File.AppendAllText(eventPath, "START " + pid + Environment.NewLine);
+                    File.AppendAllText(eventPath, "DISPLAY " + Desktop.DisplayMode() + Environment.NewLine + "START " + pid + Environment.NewLine);
                     window.Activate();
                 };
                 window.FormClosing += (sender, args) =>

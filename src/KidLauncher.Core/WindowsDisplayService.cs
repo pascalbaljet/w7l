@@ -42,6 +42,8 @@ namespace KidLauncher.Core
             if (data.Length < HeaderSize || BitConverter.ToUInt16(data, 68) != HeaderSize ||
                 data.Length != HeaderSize + BitConverter.ToUInt16(data, 70))
                 throw new InvalidOperationException("The saved native display mode is invalid.");
+            if (BitConverter.ToInt32(data, 172) != mode.Width || BitConverter.ToInt32(data, 176) != mode.Height)
+                throw new InvalidOperationException("The saved native display dimensions disagree with the selected resolution. Reselect the mode in the configurator.");
             var memory = Marshal.AllocHGlobal(data.Length);
             try
             {
@@ -49,6 +51,11 @@ namespace KidLauncher.Core
                 Check(ChangeDisplaySettingsEx(device, memory, IntPtr.Zero, 2, IntPtr.Zero), "test");
                 // Flags 0: temporary operation, never CDS_UPDATEREGISTRY.
                 Check(ChangeDisplaySettingsEx(device, memory, IntPtr.Zero, 0, IntPtr.Zero), "apply");
+                var actual = Read(device, -1);
+                if (actual.Width != mode.Width || actual.Height != mode.Height ||
+                    (mode.BitsPerPixel > 0 && actual.BitsPerPixel != mode.BitsPerPixel) ||
+                    (mode.Frequency > 1 && actual.Frequency != mode.Frequency))
+                    throw new InvalidOperationException("The driver accepted " + mode + " but Windows reports " + actual + ". The selected mode was not applied.");
             }
             finally { Marshal.FreeHGlobal(memory); }
         }

@@ -126,6 +126,7 @@ namespace KidLauncher.Core
                     Report("Applying resolution: " + game.Resolution);
                     display.Apply(game.Resolution);
                 }
+                Report("Display immediately before game launch: " + display.Capture());
                 cancellationToken.ThrowIfCancellationRequested();
                 GameStarting?.Invoke();
                 session.ProcessStartPending = true;
@@ -146,6 +147,7 @@ namespace KidLauncher.Core
                 session.ProcessStartPending = false;
                 recovery.Save(session);
                 Report("Process started: " + initial.Name + " PID " + initial.Id);
+                Report("Display after process start: " + display.Capture());
                 var startup = Stopwatch.StartNew();
                 Stopwatch exitTimer = null;
                 var closeRequested = new HashSet<string>();

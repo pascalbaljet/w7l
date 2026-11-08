@@ -104,6 +104,13 @@ namespace KidLauncher.Configurator
             Field(panel, "Artwork path (managed PNG or existing image)", g, "ArtworkPath");
             Heading(panel, "Display mode");
             var modes = new ComboBox { Margin = new Thickness(0, 5, 0, 5), MinHeight = 30 };
+            modes.PreviewMouseWheel += (sender, args) =>
+            {
+                if (modes.IsDropDownOpen) return;
+                args.Handled = true;
+                panel.RaiseEvent(new MouseWheelEventArgs(args.MouseDevice, args.Timestamp, args.Delta)
+                    { RoutedEvent = Mouse.MouseWheelEvent, Source = modes });
+            };
             modes.Items.Add("Use current resolution");
             try
             {

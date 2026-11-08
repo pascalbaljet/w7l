@@ -226,9 +226,11 @@ namespace KidLauncher.E2E
                 Log("Display choice before wheel: " + selectedMode + "; after wheel: " + afterWheel);
                 Check(afterWheel == selectedMode, "scrolling over the closed resolution dropdown must not change the selected mode");
             }
-            dropdown.Expand();
-            ((SelectionItemPattern)Find(modes, ControlType.ListItem, "Use current resolution").GetCurrentPattern(SelectionItemPattern.Pattern)).Select();
-            dropdown.Collapse();
+            Invoke(settings, "Save configuration");
+            string expectedDisplay = selectedMode.Split('/')[0].Trim().Replace(" × ", "x") + " ";
+            Until(() => Games()[0]["Resolution"] != null, "selected resolution is saved");
+            var resolution = (Dictionary<string, object>)Games()[0]["Resolution"];
+            Check(expectedDisplay == resolution["Width"] + "x" + resolution["Height"] + " ", "saved mode matches the selected dimensions");
             string mode = Desktop.DisplayMode();
             Invoke(settings, "▶ Test game (F6 exits)");
             Until(() => File.Exists(events) && File.ReadAllLines(events).Any(l => l.StartsWith("START ")), "configurator test game starts");
@@ -236,6 +238,9 @@ namespace KidLauncher.E2E
             var game = Process.GetProcessById(pid); owned.Add(game);
             var window = Window(game, null);
             Until(() => Desktop.Foreground == Handle(window), "configurator test game receives foreground input");
+            Check(File.ReadAllLines(events).Any(line => line.StartsWith("DISPLAY " + expectedDisplay, StringComparison.Ordinal)),
+                "configurator launches the game at the selected resolution " + expectedDisplay);
+            Desktop.Capture(Path.Combine(output, "00-selected-resolution-game.png"));
             Desktop.Key(0x75);
             Until(() => game.HasExited, "configurator test game exits after one F6");
             var observed = Window(configurator, "Observed processes — " + Cooperative);
@@ -274,6 +279,10 @@ namespace KidLauncher.E2E
             Ready(room, launcher);
             Until(() => !File.Exists(Journal), "recovery finishes before reusing the launcher");
             string[] lines = File.ReadAllLines(events);
+            var requested = Games().Single(configured => (string)configured["Title"] == title)["Resolution"] as Dictionary<string, object>;
+            if (requested != null)
+                Check(lines.Any(line => line.StartsWith("DISPLAY " + requested["Width"] + "x" + requested["Height"] + " ", StringComparison.Ordinal)),
+                    "installed launcher starts the game at its configured resolution");
             Check(lines.Count(l => l.StartsWith("START ")) == 1, "repeated activation starts exactly one game");
             Check(lines.Any(l => l.StartsWith("CLOSE_REQUEST ")), "F6 reaches the real game's close handler");
             Check(lines.Any(l => l.StartsWith("CLOSE_ACCEPTED ")) != stubborn,
