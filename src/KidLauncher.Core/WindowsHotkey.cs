@@ -22,8 +22,6 @@ namespace KidLauncher.Core
         private volatile bool enabled;
         private bool disposed, pressed, registered;
         private int pending, generation;
-        private int lastHookPressTime;
-        private bool sawHookPress;
         public string Strategy { get; private set; }
         public string LastTrigger { get; private set; }
 
@@ -124,13 +122,10 @@ namespace KidLauncher.Core
                 if (code >= 0 && enabled && Marshal.ReadInt32(data) == key)
                 {
                     int kind = message.ToInt32();
-                    if (kind == 0x100 || kind == 0x104)
-                    {
-                        lastHookPressTime = Marshal.ReadInt32(data, 12); // KBDLLHOOKSTRUCT.time
-                        sawHookPress = true;
-                        Fire("WH_KEYBOARD_LL");
-                    }
-                    if (kind == 0x101 || kind == 0x105) pressed = false;
+                    if (kind == 0x100 || kind == 0x104) Fire("WH_KEYBOARD_LL");
+                    // Let the polling timer rearm after key-up. WM_HOTKEY for
+                    // this press can arrive after key-up and must drain first.
+                    // Timer messages have lower priority than queued hotkeys.
                 }
             }
             catch (Exception ex) { Trace.TraceError("Exit keyboard hook failed: " + ex); }
@@ -162,7 +157,6 @@ namespace KidLauncher.Core
             if (hook != IntPtr.Zero && !UnhookWindowsHookEx(hook)) Trace.TraceWarning("UnhookWindowsHookEx failed: " + Marshal.GetLastWin32Error());
             hook = IntPtr.Zero;
             pressed = false;
-            sawHookPress = false;
             System.Threading.Interlocked.Exchange(ref pending, 0);
         }
         private void CheckThread()
@@ -205,10 +199,7 @@ namespace KidLauncher.Core
                 {
                     // A nonzero hook handle does not mean Windows still delivers
                     // hook callbacks. WM_HOTKEY is an independent fallback.
-                    // Only suppress the Windows message for the very same input
-                    // already seen by the hook, even if key-up was processed first.
-                    if (!owner.sawHookPress || GetMessageTime() != owner.lastHookPressTime)
-                        owner.Fire("WM_HOTKEY");
+                    owner.Fire("WM_HOTKEY");
                     return;
                 }
                 base.WndProc(ref message);
@@ -221,7 +212,6 @@ namespace KidLauncher.Core
         [DllImport("user32.dll", SetLastError = true)] private static extern bool UnhookWindowsHookEx(IntPtr hook);
         [DllImport("user32.dll")] private static extern IntPtr CallNextHookEx(IntPtr hook, int code, IntPtr message, IntPtr data);
         [DllImport("user32.dll")] private static extern short GetAsyncKeyState(int key);
-        [DllImport("user32.dll")] private static extern int GetMessageTime();
         [DllImport("user32.dll")] private static extern bool PostMessage(IntPtr window, int message, IntPtr wparam, IntPtr lparam);
         [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] private static extern IntPtr GetModuleHandle(string name);
         [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)] private static extern ushort GlobalAddAtom(string name);

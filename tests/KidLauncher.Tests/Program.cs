@@ -70,7 +70,7 @@ namespace KidLauncher.Tests
                 Assert(calls == 1, "Disabled hotkey still fired.");
                 hotkey.Enabled = true;
                 SendKey(0x75); pump(300);
-                Assert(calls == 2, "F6 stopped working after disabling and re-enabling the listener.");
+                Assert(calls == 2, "Expected two total F6 callbacks after re-enabling; received " + calls + ". Last source: " + hotkey.LastTrigger);
             }
         }
 
