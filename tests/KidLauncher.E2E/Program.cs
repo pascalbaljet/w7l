@@ -185,6 +185,7 @@ namespace KidLauncher.E2E
                 FindNow(room, ControlType.Button, "Vorige pagina")?.Current.IsOffscreen != false, "single-page launcher has only game tiles, without headings or page controls");
             Desktop.MovePointer(4, 4);
             Desktop.ClientAreaAnimation = false;
+            Check(!Desktop.ClientAreaAnimation, "Windows reports that client-area animations are disabled");
             Thread.Sleep(1500);
             Desktop.Capture(Path.Combine(output, "02-reduced-motion.png"));
             Thread.Sleep(500);

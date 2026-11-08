@@ -30,7 +30,8 @@ namespace KidLauncher.E2E
             }
             set
             {
-                if (!SetSystemParameters(0x1043, 0, new IntPtr(value ? 1 : 0), 2)) throw NativeError("SPI_SETCLIENTAREAANIMATION");
+                // Update the disposable test account's preference and notify existing WPF windows.
+                if (!SetSystemParameters(0x1043, 0, new IntPtr(value ? 1 : 0), 3)) throw NativeError("SPI_SETCLIENTAREAANIMATION");
             }
         }
 
