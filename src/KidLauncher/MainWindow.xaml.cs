@@ -255,7 +255,7 @@ namespace KidLauncher
         {
             if (session == null || !session.IsRunning || exitRequested) return;
             exitRequested = true;
-            try { log.Write("Global exit-game key pressed."); await session.RequestExitAsync(); }
+            try { log.Write("Global exit-game key pressed; source=" + hotkey.LastTrigger); await session.RequestExitAsync(); }
             catch (Exception ex) { Error(L("We need a grown-up's help to come back.", "Vraag een volwassene om je terug te helpen."), ex); }
             finally { exitRequested = false; }
         }

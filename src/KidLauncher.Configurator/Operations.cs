@@ -58,7 +58,7 @@ namespace KidLauncher.Configurator
                 session = null; observed.Clear(); observedGame = game;
                 testHotkey = new WindowsHotkey(new WindowInteropHelper(this).Handle, 0x75, () =>
                 {
-                    log.Write("Configurator F6 received; active game session: " + (session != null && session.IsRunning));
+                    log.Write("Configurator F6 received; source=" + testHotkey.LastTrigger + "; active game session: " + (session != null && session.IsRunning));
                     StopTest();
                 }); testHotkey.Enabled = true;
                 if (!testHotkey.Enabled) throw new InvalidOperationException("F6 could not be enabled; the test has not started.");

@@ -19,6 +19,7 @@ namespace KidLauncher.Core
         private IntPtr hook;
         private bool enabled, disposed, pressed, registered;
         public string Strategy { get; private set; }
+        public string LastTrigger { get; private set; }
 
         public WindowsHotkey(IntPtr windowHandle, int virtualKey, Action callback)
         {
@@ -32,8 +33,12 @@ namespace KidLauncher.Core
             window = new MessageWindow(this, windowHandle);
             hookCallback = KeyboardHook;
             releaseTimer = new Timer { Interval = 30 };
-            releaseTimer.Tick += (sender, args) => { if ((GetAsyncKeyState(key) & 0x8000) == 0) pressed = false; };
-            Strategy = "Disabled; RegisterHotKey preferred, low-level hook fallback. Exclusive-input/elevated games require real-machine testing.";
+            releaseTimer.Tick += (sender, args) =>
+            {
+                if ((GetAsyncKeyState(key) & 0x8000) != 0) Fire("GetAsyncKeyState polling");
+                else pressed = false;
+            };
+            Strategy = "Disabled; low-level keyboard hook, RegisterHotKey and key-state polling.";
         }
 
         public bool Enabled
@@ -47,16 +52,18 @@ namespace KidLauncher.Core
                 if (!value) { Stop(); return; }
                 pressed = (GetAsyncKeyState(key) & 0x8000) != 0;
                 registered = RegisterHotKey(window.Handle, hotkeyId, 0x4000, (uint)key); // MOD_NOREPEAT, Windows 7+
-                if (registered) Strategy = "RegisterHotKey (MOD_NOREPEAT + key-release guard)";
-                else
+                int registrationError = registered ? 0 : Marshal.GetLastWin32Error();
+                // A successful RegisterHotKey is not proof that an exclusive-input
+                // game will deliver WM_HOTKEY. Keep the hook active in that case too.
+                hook = SetWindowsHookEx(13, hookCallback, GetModuleHandle(null), 0);
+                if (hook == IntPtr.Zero)
                 {
-                    int registrationError = Marshal.GetLastWin32Error();
-                    hook = SetWindowsHookEx(13, hookCallback, GetModuleHandle(null), 0);
-                    if (hook == IntPtr.Zero)
-                        throw new Win32Exception(Marshal.GetLastWin32Error(), "Cannot install exit hotkey. RegisterHotKey error " + registrationError + "; keyboard hook also failed.");
-                    Strategy = "WH_KEYBOARD_LL fallback (RegisterHotKey error " + registrationError + "). Not guaranteed for exclusive input or higher-integrity games.";
-                    Trace.TraceWarning(Strategy);
+                    int hookError = Marshal.GetLastWin32Error();
+                    if (registered) UnregisterHotKey(window.Handle, hotkeyId);
+                    registered = false;
+                    throw new Win32Exception(hookError, "Cannot install exit keyboard hook. RegisterHotKey error " + registrationError + ".");
                 }
+                Strategy = "WH_KEYBOARD_LL + GetAsyncKeyState polling; " + (registered ? "RegisterHotKey enabled" : "RegisterHotKey error " + registrationError) + ". Launcher and game must use the same elevation level.";
                 enabled = true;
                 releaseTimer.Start();
             }
@@ -69,17 +76,18 @@ namespace KidLauncher.Core
                 if (code >= 0 && enabled && Marshal.ReadInt32(data) == key)
                 {
                     int kind = message.ToInt32();
-                    if (kind == 0x100 || kind == 0x104) { Fire(); return new IntPtr(1); }
-                    if (kind == 0x101 || kind == 0x105) { pressed = false; return new IntPtr(1); }
+                    if (kind == 0x100 || kind == 0x104) Fire("WH_KEYBOARD_LL");
+                    if (kind == 0x101 || kind == 0x105) pressed = false;
                 }
             }
             catch (Exception ex) { Trace.TraceError("Exit keyboard hook failed: " + ex); }
             return CallNextHookEx(hook, code, message, data);
         }
-        private void Fire()
+        private void Fire(string source)
         {
             if (!enabled || pressed) return;
             pressed = true;
+            LastTrigger = source;
             // Keep native callbacks short. Run user code on a later UI message.
             PostMessage(window.Handle, 0x8000 + 731, IntPtr.Zero, IntPtr.Zero);
         }
@@ -123,7 +131,13 @@ namespace KidLauncher.Core
             {
                 try
                 {
-                    if (message.Msg == 0x312 && message.WParam.ToInt32() == owner.hotkeyId) { owner.Fire(); return; }
+                    if (message.Msg == 0x312 && message.WParam.ToInt32() == owner.hotkeyId)
+                    {
+                        // The hook sees the same key first. Avoid a second callback
+                        // if its key-up arrived before this queued WM_HOTKEY.
+                        if (owner.hook == IntPtr.Zero) owner.Fire("WM_HOTKEY");
+                        return;
+                    }
                     if (message.Msg == 0x8000 + 731) { owner.InvokeCallback(); return; }
                 }
                 catch (Exception ex) { Trace.TraceError("Exit hotkey message failed: " + ex); }
