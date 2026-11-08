@@ -20,7 +20,7 @@ namespace KidLauncher.Core
             {
                 var mode = Read(device, i);
                 if (mode == null) break;
-                var label = mode.ToString();
+                var label = mode.Width + "/" + mode.Height + "/" + mode.Frequency + "/" + mode.BitsPerPixel;
                 variants.TryGetValue(label, out var number);
                 variants[label] = mode.VariantNumber = number + 1;
                 mode.EnumerationIndex = i;

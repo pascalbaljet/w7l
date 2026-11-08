@@ -73,8 +73,19 @@ namespace KidLauncher.Core
         public int? EnumerationIndex { get; set; }
         // Full native DEVMODE, including device-specific data, for exact recovery.
         public byte[] NativeData { get; set; }
-        public override string ToString() => (VariantNumber > 0 ? "(" + VariantNumber + ") " : "") +
-            Width + " × " + Height + " / " + Frequency + " Hz / " + BitsPerPixel + " bit";
+        public override string ToString()
+        {
+            var scaling = "Unspecified";
+            if (NativeData != null && NativeData.Length >= 220)
+            {
+                // dmDisplayFixedOutput is meaningful only when its dmFields bit is set.
+                uint output = (BitConverter.ToUInt32(NativeData, 72) & 0x20000000) != 0
+                    ? BitConverter.ToUInt32(NativeData, 88) : 0;
+                scaling = output == 0 ? "Default" : output == 1 ? "Stretch" : output == 2 ? "Center" : "Driver value " + output;
+            }
+            return (VariantNumber > 0 ? "(" + VariantNumber + ") " : "") +
+                Width + " × " + Height + " / " + Frequency + " Hz / " + BitsPerPixel + " bit / " + scaling;
+        }
         public string DescribeNative() => ToString() + "; enumeration index=" +
             (EnumerationIndex.HasValue ? EnumerationIndex.Value.ToString() : "unknown") +
             "; native DEVMODE base64=" + (NativeData == null ? "none" : Convert.ToBase64String(NativeData));

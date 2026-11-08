@@ -23,7 +23,7 @@ namespace KidLauncher.Tests
                 DisabledForceExitKeepsResources, LegacyDiscRestorationSettingIsIgnored, WindowsProcessIdentity,
                 FutureSchemaCannotBeOverwritten, DiscRecoveryIsIdempotent, RecoveryFindsUnrecordedChild,
                 ReportingFailureDoesNotLockSession, UncertainStartRequiresAdultRecovery, SelectedProcessNamesLeaveHelpersAlone,
-                WindowsShortcutLaunch, WindowsDisplayRejectsMismatchedNativeMode, WindowsHotkeySurvivesBusyUi };
+                WindowsShortcutLaunch, WindowsDisplayRejectsMismatchedNativeMode, DisplayModeScalingLabels, WindowsHotkeySurvivesBusyUi };
             int failed = 0;
             foreach (var test in tests)
             {
@@ -171,6 +171,26 @@ namespace KidLauncher.Tests
             var actual = display.Capture();
             Assert(actual.Width == original.Width && actual.Height == original.Height,
                 "A mismatched saved mode must be rejected before changing the display.");
+        }
+        private static void DisplayModeScalingLabels()
+        {
+            var data = new byte[220];
+            var mode = new DisplayMode { Width = 640, Height = 480, BitsPerPixel = 32, Frequency = 60,
+                VariantNumber = 3, NativeData = data };
+            BitConverter.GetBytes(0x20000000u).CopyTo(data, 72);
+            var labels = new[] { "Default", "Stretch", "Center", "Driver value 3" };
+            for (uint output = 0; output < labels.Length; output++)
+            {
+                BitConverter.GetBytes(output).CopyTo(data, 88);
+                Assert(mode.ToString() == "(3) 640 × 480 / 60 Hz / 32 bit / " + labels[output],
+                    "Display mode must label the native fixed-output setting without changing its variant number.");
+            }
+            BitConverter.GetBytes(1u).CopyTo(data, 88);
+            BitConverter.GetBytes(0u).CopyTo(data, 72);
+            Assert(mode.ToString().EndsWith(" / Default"), "An unset fixed-output field must not be labeled Stretch.");
+            Assert(BitConverter.ToUInt32(data, 88) == 1, "Rendering a label must not modify the saved native mode.");
+            mode.NativeData = null;
+            Assert(mode.ToString().EndsWith(" / Unspecified"), "Missing native data cannot establish a scaling setting.");
         }
         private static void ForcedExitAndChildHandoff()
         {
