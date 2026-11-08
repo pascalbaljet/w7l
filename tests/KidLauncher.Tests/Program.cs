@@ -80,7 +80,7 @@ namespace KidLauncher.Tests
         {
             [FieldOffset(0)] public uint Type;
             [FieldOffset(4)] public ushort Key;
-            [FieldOffset(12)] public uint Flags;
+            [FieldOffset(8)] public uint Flags;
         }
         private static void SendKey(ushort key)
         {
