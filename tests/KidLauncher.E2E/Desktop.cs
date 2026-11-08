@@ -24,7 +24,9 @@ namespace KidLauncher.E2E
         public static Size CursorSize()
         {
             var cursor = new CursorInfo { Size = Marshal.SizeOf(typeof(CursorInfo)) };
-            if (!GetCursorInfo(ref cursor) || !GetIconInfo(cursor.Cursor, out var info)) throw NativeError("Read cursor size");
+            if (!GetCursorInfo(ref cursor)) throw NativeError("GetCursorInfo");
+            if ((cursor.Flags & 1) == 0) throw new InvalidOperationException("The cursor is not visible. Flags=" + cursor.Flags);
+            if (!GetIconInfo(cursor.Cursor, out var info)) throw NativeError("GetIconInfo");
             try
             {
                 using (var bitmap = Bitmap.FromHbitmap(info.Color)) return bitmap.Size;
@@ -40,11 +42,18 @@ namespace KidLauncher.E2E
         {
             Point start;
             if (!GetCursorPos(out start)) throw NativeError("GetCursorPos");
+            Rectangle bounds = SystemInformation.VirtualScreen;
             for (int step = 1; step <= 15; step++)
             {
                 int nextX = (int)Math.Round(start.X + ((double)x - start.X) * step / 15);
                 int nextY = (int)Math.Round(start.Y + ((double)y - start.Y) * step / 15);
-                if (!SetCursorPos(nextX, nextY)) throw NativeError("SetCursorPos");
+                // Inject actual mouse motion, including its cursor-visibility effects.
+                // Address pixel centers in absolute coordinates on the virtual desktop.
+                Inject(new Input { Data = new InputUnion { Mouse = new MouseInput {
+                    X = Math.Min(65535, Math.Max(0, (int)((nextX - bounds.Left + 0.5) * 65536 / bounds.Width))),
+                    Y = Math.Min(65535, Math.Max(0, (int)((nextY - bounds.Top + 0.5) * 65536 / bounds.Height))),
+                    Flags = 0xC001
+                } } });
                 Thread.Sleep(10);
             }
             Point end;
@@ -223,7 +232,6 @@ namespace KidLauncher.E2E
 
         [DllImport("user32.dll", SetLastError = true)] private static extern uint SendInput(uint count, Input[] inputs, int size);
         [DllImport("user32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool GetCursorPos(out Point point);
-        [DllImport("user32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool SetCursorPos(int x, int y);
         [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool IsWindowVisible(IntPtr hwnd);
         [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
         [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool SetForegroundWindow(IntPtr hwnd);
