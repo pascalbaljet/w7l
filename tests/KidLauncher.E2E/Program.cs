@@ -162,6 +162,19 @@ namespace KidLauncher.E2E
 
         static void TestInConfigurator(Process configurator, AutomationElement settings, string events)
         {
+            var modes = Wait(() => settings.FindFirst(TreeScope.Descendants,
+                new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.ComboBox)), "display mode dropdown");
+            Desktop.Activate(Handle(settings)); modes.SetFocus();
+            var dropdown = (ExpandCollapsePattern)modes.GetCurrentPattern(ExpandCollapsePattern.Pattern);
+            dropdown.Expand();
+            Until(() => modes.FindAll(TreeScope.Descendants,
+                new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.ListItem)).Count > 1, "driver display choices are exposed");
+            var choices = modes.FindAll(TreeScope.Descendants,
+                new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.ListItem)).Cast<AutomationElement>().Select(choice => choice.Current.Name).ToArray();
+            Check(choices.All(name => !string.IsNullOrWhiteSpace(name)) && choices.Distinct().Count() == choices.Length,
+                "display choices have distinct visible labels");
+            Desktop.Capture(Path.Combine(output, "00-display-choices.png"));
+            dropdown.Collapse();
             string mode = Desktop.DisplayMode();
             Invoke(settings, "▶ Test game (F6 exits)");
             Until(() => File.Exists(events) && File.ReadAllLines(events).Any(l => l.StartsWith("START ")), "configurator test game starts");
