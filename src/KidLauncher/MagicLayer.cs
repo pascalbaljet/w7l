@@ -58,10 +58,17 @@ namespace KidLauncher
             if (!Motion) return;
             double now = clock.Elapsed.TotalSeconds;
             if (lastTrail >= 0 && (now - lastTrail < 0.035 || (point - lastPoint).Length < 9)) return;
+            var from = lastTrail < 0 ? point : lastPoint;
+            int steps = Math.Min(8, Math.Max(1, (int)((point - from).Length / 14)));
             lastTrail = now;
             lastPoint = point;
-            Add(new Point(point.X - 8, point.Y + 16), new Vector(random.NextDouble() * 16 - 8, 12), 4 + random.NextDouble() * 4, 0.8);
-            Add(new Point(point.X + 8, point.Y + 20), new Vector(random.NextDouble() * 24 - 12, 18), 2 + random.NextDouble() * 2, 0.55);
+            // Fill gaps between coalesced mouse events; keep the dust outside the large cursor.
+            for (int i = 1; i <= steps; i++)
+            {
+                var origin = from + (point - from) * ((double)i / steps);
+                Add(origin + new Vector(-14, 28), new Vector(random.NextDouble() * 16 - 8, 12), 5 + random.NextDouble() * 4, 1.05);
+                Add(origin + new Vector(random.NextDouble() * 20 - 10, 48), new Vector(random.NextDouble() * 24 - 12, 18), 3 + random.NextDouble() * 2, 0.75);
+            }
             Start();
         }
 

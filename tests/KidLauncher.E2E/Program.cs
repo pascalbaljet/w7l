@@ -207,6 +207,13 @@ namespace KidLauncher.E2E
                 var neighbor = Find(room, ControlType.Button, Stubborn);
                 var resting = tile.Current.BoundingRectangle;
                 var neighborResting = neighbor.Current.BoundingRectangle;
+                var scene = room.Current.BoundingRectangle;
+                Desktop.MovePointer((int)(scene.Left + scene.Width * 0.2), (int)(scene.Top + scene.Height * 0.7));
+                Desktop.MovePointer((int)(scene.Left + scene.Width * 0.75), (int)(scene.Top + scene.Height * 0.7));
+                Thread.Sleep(100);
+                Desktop.Capture(Path.Combine(output, "02-pointer-dust.png"));
+                Desktop.MovePointer(4, 4);
+                Thread.Sleep(1200);
                 // Sample just outside the fixed button target. The decorative
                 // tile grows into that margin without changing input geometry.
                 Func<string, float> edgeBrightness = name =>
