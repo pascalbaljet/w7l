@@ -366,6 +366,7 @@ namespace KidLauncher
             // A fresh parent resumes layout after detachment; a detached WPF
             // subtree by itself is layout-suspended and ignores Measure/Arrange.
             var host = new Grid { Width = 1920, Height = 1080 };
+            host.SetValue(TextBlock.ForegroundProperty, Foreground);
             Content = null;
             try
             {
@@ -374,6 +375,8 @@ namespace KidLauncher
                 host.Measure(new Size(1920, 1080));
                 host.Arrange(new Rect(0, 0, 1920, 1080));
                 host.UpdateLayout();
+                if (!Equals(OverlayTitle.Foreground, Foreground) || !Equals(PlaySubtitle.Foreground, Foreground))
+                    throw new InvalidOperationException("Offscreen capture lost the window text color.");
                 var image = new RenderTargetBitmap(1920, 1080, 96, 96, PixelFormats.Pbgra32);
                 image.Render(Backdrop);
                 var corner = new byte[4];
