@@ -225,10 +225,12 @@ namespace KidLauncher.E2E
                 Desktop.Capture(Path.Combine(output, "02-launcher-hover.png"));
                 Check(edgeBrightness("02-launcher-hover.png") > restingEdge + 0.15,
                     "hover visibly enlarges and highlights the decorative tile beyond its fixed hit target");
-                Move(neighbor); Thread.Sleep(400);
-                Desktop.Capture(Path.Combine(output, "02-neighbor-hover.png"));
-                Check(Math.Abs(edgeBrightness("02-neighbor-hover.png") - restingEdge) < 0.02,
-                    "tile decoration returns to its resting size after pointer leaves");
+                Move(neighbor);
+                Until(() =>
+                {
+                    Desktop.Capture(Path.Combine(output, "02-neighbor-hover.png"));
+                    return Math.Abs(edgeBrightness("02-neighbor-hover.png") - restingEdge) < 0.02;
+                }, "tile decoration returns to its resting size after pointer leaves");
                 Play(room, launcher, Cooperative, normalEvents, false, unrelated, originalMode);
                 Play(room, launcher, Stubborn, stubbornEvents, true, unrelated, originalMode);
                 File.Delete(missing);
