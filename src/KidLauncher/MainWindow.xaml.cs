@@ -243,8 +243,8 @@ namespace KidLauncher
                 var title = new TextBlock { Text = game.Title, Foreground = new SolidColorBrush(Color.FromRgb(72, 55, 83)),
                     FontSize = 24, FontWeight = FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap,
                     TextTrimming = TextTrimming.CharacterEllipsis, MaxHeight = 66,
-                    Margin = new Thickness(18, 16, 18, 18), TextAlignment = TextAlignment.Center };
-                var caption = new Border { Background = cream, MinHeight = 84, Child = title };
+                    Margin = new Thickness(18, 16, 18, 18), TextAlignment = TextAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+                var caption = new Border { Background = cream, Height = 104, Child = title };
                 Grid.SetRow(caption, 1);
                 layout.Children.Add(caption);
             }
@@ -504,6 +504,20 @@ namespace KidLauncher
                 Capture(directory, prefix + "empty.png");
                 config.Games.ForEach(game => game.Visible = true);
             }
+            // Reuse a rendered image as a test bitmap, not as bundled game artwork.
+            config.Language = "nl";
+            for (int i = 0; i < config.Games.Count; i++) config.Games[i].Visible = i < 3;
+            config.Games[0].ArtworkPath = Path.Combine(directory, "launcher-default.png");
+            config.Games[1].ExecutablePath = typeof(App).Assembly.Location;
+            RenderPage(); Overlay.Visibility = Visibility.Collapsed;
+            Capture(directory, "launcher-artwork.png");
+            config.Appearance.ShowTitles = false;
+            RenderPage();
+            Capture(directory, "launcher-no-titles.png");
+            config.Appearance.BackgroundImage = config.Games[0].ArtworkPath;
+            RenderPage();
+            if (BackdropAccents.Visibility != Visibility.Collapsed) throw new InvalidOperationException("Wallpaper must suppress scenery.");
+            Capture(directory, "launcher-wallpaper.png");
             File.WriteAllText(Path.Combine(directory, "launcher-checks.txt"), "PASS: Dutch and English loading, error and empty states rendered. 12 tiles on page 1; 1 on page 2; previous/next Click events update pages without page text or headings.");
             authorizedExit = true;
         }
