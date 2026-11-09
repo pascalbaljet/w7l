@@ -223,7 +223,9 @@ namespace KidLauncher.E2E
                 "hovering and clicking sky and garden toys does not animate with reduced motion enabled");
             Desktop.ClientAreaAnimation = true;
             // The sky twinkles for three seconds after the last pointer movement, then fades to rest.
-            Thread.Sleep(5500);
+            // Seven-second waits also outlast the 5-second idle cursor hide, which the launcher
+            // checks once per second, so captures never straddle the pointer disappearing.
+            Thread.Sleep(7000);
             Desktop.Capture(Path.Combine(output, "02-launcher-ready.png"));
             Thread.Sleep(400);
             Desktop.Capture(Path.Combine(output, "02-launcher-idle.png"));
@@ -253,7 +255,7 @@ namespace KidLauncher.E2E
                 Desktop.Capture(Path.Combine(output, "02-twinkle-b.png"));
                 Check(Math.Max(twinkleChange("02-twinkle-a.png"), twinkleChange("02-twinkle-b.png")) > 10,
                     "moving the pointer makes the sky twinkle");
-                Desktop.MovePointer(4, 4); Thread.Sleep(5500);
+                Desktop.MovePointer(4, 4); Thread.Sleep(7000);
                 Desktop.Capture(Path.Combine(output, "02-twinkle-rested.png"));
                 Thread.Sleep(500);
                 Desktop.Capture(Path.Combine(output, "02-twinkle-rested-later.png"));
@@ -279,7 +281,7 @@ namespace KidLauncher.E2E
                 Desktop.Capture(Path.Combine(output, "02-fireflies.png"));
                 Check(changedFromReady("02-fireflies.png", firefliesBounds) > 25, "clicking the fireflies sends them dancing");
                 Click(stars); Thread.Sleep(150); Click(stars);
-                Desktop.MovePointer(4, 4); Thread.Sleep(5500);
+                Desktop.MovePointer(4, 4); Thread.Sleep(7000);
                 Desktop.Capture(Path.Combine(output, "02-sky-settled.png"));
                 Check(moon.Current.BoundingRectangle == moonBounds && stars.Current.BoundingRectangle == starsBounds &&
                     owl.Current.BoundingRectangle == owlBounds && fireflies.Current.BoundingRectangle == firefliesBounds,
