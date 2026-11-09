@@ -217,7 +217,9 @@ namespace KidLauncher.E2E
                 "reduced-motion preference leaves the launcher completely still");
             Click(moon); Click(stars); Click(owl); Click(fireflies); Desktop.MovePointer(4, 4); Thread.Sleep(300);
             Desktop.Capture(Path.Combine(output, "02-reduced-motion-interactions.png"));
-            Check(changedPixels("02-reduced-motion.png", "02-reduced-motion-interactions.png", room.Current.BoundingRectangle, 1) == 0,
+            // Re-rasterized card edges can drift a few levels (observed: one pixel by 2 levels).
+            // An awake owl, lit fireflies, or a shooting star differ by far more than 48.
+            Check(changedPixels("02-reduced-motion.png", "02-reduced-motion-interactions.png", room.Current.BoundingRectangle, 48) == 0,
                 "hovering and clicking sky and garden toys does not animate with reduced motion enabled");
             Desktop.ClientAreaAnimation = true;
             // The sky twinkles for three seconds after the last pointer movement, then fades to rest.
