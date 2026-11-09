@@ -8,6 +8,9 @@
   <RadialGradientBrush x:Key="SoftGlow">
    <GradientStop Color="#55FFF1CD" Offset="0"/><GradientStop Color="#1AFFF1CD" Offset="0.55"/><GradientStop Color="#00FFF1CD" Offset="1"/>
   </RadialGradientBrush>
+  <RadialGradientBrush x:Key="HeadGlow">
+   <GradientStop Color="#C0FFF6DC" Offset="0"/><GradientStop Color="#40FFF1CD" Offset="0.45"/><GradientStop Color="#00FFF1CD" Offset="1"/>
+  </RadialGradientBrush>
   <RadialGradientBrush x:Key="FireflyGlow">
    <GradientStop Color="#FFFFF8D2" Offset="0"/><GradientStop Color="#FFF7E58A" Offset="0.22"/><GradientStop Color="#55F7E58A" Offset="0.5"/><GradientStop Color="#00F7E58A" Offset="1"/>
   </RadialGradientBrush>
@@ -38,6 +41,19 @@
      <Ellipse Canvas.Left="1407" Canvas.Top="291" Width="5" Height="5" Fill="#90EAD9B0"/>
      <Ellipse Canvas.Left="1477" Canvas.Top="239" Width="6" Height="6" Fill="#D5EAD9B0"/>
      <Path Fill="#68F4E4C7" Data="M660,98 a2,2 0 1 0 4,0 a2,2 0 1 0 -4,0 M1050,180 a2,2 0 1 0 4,0 a2,2 0 1 0 -4,0 M1180,82 a2,2 0 1 0 4,0 a2,2 0 1 0 -4,0 M1780,356 a2,2 0 1 0 4,0 a2,2 0 1 0 -4,0 M94,460 a2,2 0 1 0 4,0 a2,2 0 1 0 -4,0"/>
+     <!-- Ambient twinkle: opacity only, kept out of the moon, constellation and shooting-star paths. -->
+     <Canvas x:Name="Twinkles">
+      <Canvas Canvas.Left="686" Canvas.Top="36" Opacity="0.6"><Ellipse Width="28" Height="28" Fill="{StaticResource SoftGlow}"/><Path Canvas.Left="8" Canvas.Top="8" Fill="#FFF1CD" Data="M6,0 L7.5,4.5 12,6 7.5,7.5 6,12 4.5,7.5 0,6 4.5,4.5Z"/></Canvas>
+      <Canvas Canvas.Left="1231" Canvas.Top="31" Opacity="0.6"><Ellipse Width="18" Height="18" Fill="{StaticResource SoftGlow}"/><Ellipse Canvas.Left="7" Canvas.Top="7" Width="4" Height="4" Fill="#FFF1CD"/></Canvas>
+      <Canvas Canvas.Left="991" Canvas.Top="11" Opacity="0.6"><Ellipse Width="18" Height="18" Fill="{StaticResource SoftGlow}"/><Ellipse Canvas.Left="7" Canvas.Top="7" Width="4" Height="4" Fill="#FFF1CD"/></Canvas>
+      <Canvas Canvas.Left="266" Canvas.Top="406" Opacity="0.6"><Ellipse Width="28" Height="28" Fill="{StaticResource SoftGlow}"/><Path Canvas.Left="8" Canvas.Top="8" Fill="#FFF1CD" Data="M6,0 L7.5,4.5 12,6 7.5,7.5 6,12 4.5,7.5 0,6 4.5,4.5Z"/></Canvas>
+      <Canvas Canvas.Left="1606" Canvas.Top="416" Opacity="0.6"><Ellipse Width="28" Height="28" Fill="{StaticResource SoftGlow}"/><Path Canvas.Left="8" Canvas.Top="8" Fill="#FFF1CD" Data="M6,0 L7.5,4.5 12,6 7.5,7.5 6,12 4.5,7.5 0,6 4.5,4.5Z"/></Canvas>
+      <Canvas Canvas.Left="411" Canvas.Top="281" Opacity="0.6"><Ellipse Width="18" Height="18" Fill="{StaticResource SoftGlow}"/><Ellipse Canvas.Left="7" Canvas.Top="7" Width="4" Height="4" Fill="#FFF1CD"/></Canvas>
+      <Canvas Canvas.Left="1071" Canvas.Top="291" Opacity="0.6"><Ellipse Width="18" Height="18" Fill="{StaticResource SoftGlow}"/><Ellipse Canvas.Left="7" Canvas.Top="7" Width="4" Height="4" Fill="#FFF1CD"/></Canvas>
+      <Canvas Canvas.Left="1836" Canvas.Top="236" Opacity="0.6"><Ellipse Width="28" Height="28" Fill="{StaticResource SoftGlow}"/><Path Canvas.Left="8" Canvas.Top="8" Fill="#FFF1CD" Data="M6,0 L7.5,4.5 12,6 7.5,7.5 6,12 4.5,7.5 0,6 4.5,4.5Z"/></Canvas>
+      <Canvas Canvas.Left="1781" Canvas.Top="631" Opacity="0.6"><Ellipse Width="18" Height="18" Fill="{StaticResource SoftGlow}"/><Ellipse Canvas.Left="7" Canvas.Top="7" Width="4" Height="4" Fill="#FFF1CD"/></Canvas>
+      <Canvas Canvas.Left="126" Canvas.Top="626" Opacity="0.6"><Ellipse Width="28" Height="28" Fill="{StaticResource SoftGlow}"/><Path Canvas.Left="8" Canvas.Top="8" Fill="#FFF1CD" Data="M6,0 L7.5,4.5 12,6 7.5,7.5 6,12 4.5,7.5 0,6 4.5,4.5Z"/></Canvas>
+     </Canvas>
      <Path Stroke="#45E0C4BB" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M86,1080 Q60,960 142,848 M86,1010 Q28,975 26,934 M95,960 Q149,960 178,911 M116,895 Q76,861 84,825 M1810,1080 Q1860,1000 1828,932 M1838,1024 Q1784,1003 1776,973 M1840,990 Q1880,978 1892,944"/>
     </Canvas>
    </Viewbox>
@@ -69,7 +85,7 @@
    <Button x:Name="Moon" Style="{StaticResource SkyToy}" Width="144" Height="144" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,40,60,0"
     KeyboardNavigation.TabIndex="1000" AutomationProperties.Name="Moon" Click="Moon_Click">
     <Grid Width="144" Height="144" IsHitTestVisible="False">
-     <Ellipse Width="144" Height="144" Fill="{StaticResource SoftGlow}"/>
+     <Ellipse x:Name="MoonGlow" Width="144" Height="144" Fill="{StaticResource SoftGlow}"/>
      <Ellipse x:Name="MoonHalo" Width="132" Height="132" Stroke="#F4DFAC" StrokeThickness="1" Opacity="0"/>
      <Grid x:Name="MoonBody" Width="104" Height="104" RenderTransformOrigin="0.5,0.5">
       <Grid.RenderTransform><TransformGroup><ScaleTransform/><RotateTransform/></TransformGroup></Grid.RenderTransform>
@@ -139,6 +155,7 @@
      <Path StrokeThickness="2" StrokeStartLineCap="Round" Data="M12,18 L145,0">
       <Path.Stroke><LinearGradientBrush StartPoint="0,1" EndPoint="1,0"><GradientStop Color="#F4DFAC" Offset="0"/><GradientStop Color="#00F4DFAC" Offset="1"/></LinearGradientBrush></Path.Stroke>
      </Path>
+     <Ellipse Canvas.Left="-8" Canvas.Top="-2" Width="40" Height="40" Fill="{StaticResource HeadGlow}"/>
      <Path Fill="#FFF1CD" Data="M12,6 L15,15 24,18 15,21 12,30 9,21 0,18 9,15Z"/>
     </Canvas>
    </Canvas>

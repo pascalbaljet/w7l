@@ -38,6 +38,7 @@ namespace KidLauncher
         private bool adultOpen;
         private bool exitRequested;
         private bool started;
+        private bool twinkling;
         private readonly bool smokeTest;
         private DateTime lastMove = DateTime.UtcNow;
         private DateTime lastWheel = DateTime.MinValue;
@@ -94,6 +95,7 @@ namespace KidLauncher
             PreviewMouseMove += (s, e) =>
             {
                 lastMove = DateTime.UtcNow; Mouse.OverrideCursor = null;
+                UpdateTwinkle();
             };
             PreviewMouseWheel += (s, e) =>
             {
@@ -105,6 +107,7 @@ namespace KidLauncher
             idleTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
             idleTimer.Tick += (s, e) =>
             {
+                UpdateTwinkle();
                 if (IsActive && !adultOpen && config != null && config.Appearance != null && config.Appearance.CursorHideSeconds > 0 &&
                     DateTime.UtcNow - lastMove >= TimeSpan.FromSeconds(config.Appearance.CursorHideSeconds))
                     Mouse.OverrideCursor = Cursors.None;
@@ -129,6 +132,9 @@ namespace KidLauncher
                     log.Write("Configuration could not load; attempting recovery with detected drive utility: " + ex);
                 }
                 ApplyLanguage();
+                // Tier 2 means WPF composites animations on the GPU; tier 0 means software rendering.
+                log.Write("Rendering tier " + (RenderCapability.Tier >> 16) + "; Windows animations " +
+                    (SystemParameters.ClientAreaAnimation ? "on" : "off"));
                 ShowOverlay(L("Getting ready…", "Even geduld…"), L("Your adventures will be here soon.", "Je avonturen komen eraan."), false);
                 CreateSession();
                 await session.RecoverAsync();
@@ -202,7 +208,9 @@ namespace KidLauncher
             foreach (var game in games.Skip(page * pageSize).Take(pageSize)) Tiles.Children.Add(CreateTile(game));
             Tiles.Columns = Math.Min(columns, Math.Max(1, Tiles.Children.Count));
             Tiles.Rows = Math.Max(1, (Tiles.Children.Count + Tiles.Columns - 1) / Tiles.Columns);
-            AnimateValue(Tiles, UIElement.OpacityProperty, 1, 180, MotionEnabled ? 0.75 : 1);
+            if (MotionEnabled)
+                for (int i = 0; i < Tiles.Children.Count; i++)
+                    if (Tiles.Children[i] is Button tile) EnterCard((Grid)tile.Content, i * 45);
             Previous.IsEnabled = page > 0;
             Next.IsEnabled = page < count - 1;
             Navigation.Visibility = count > 1 ? Visibility.Visible : Visibility.Collapsed;
@@ -435,6 +443,66 @@ namespace KidLauncher
             }
         }
 
+        // Cards rise and fade in one after another. Only the decoration moves; the button stays put.
+        private static void EnterCard(Grid visual, int delay)
+        {
+            var lift = ((TransformGroup)visual.RenderTransform).Children[1];
+            double total = delay + 460, start = delay / total;
+            foreach (var step in new[] { Tuple.Create<IAnimatable, DependencyProperty, double>(visual, UIElement.OpacityProperty, 0),
+                Tuple.Create<IAnimatable, DependencyProperty, double>(lift, TranslateTransform.YProperty, 22) })
+            {
+                var enter = new DoubleAnimationUsingKeyFrames { Duration = TimeSpan.FromMilliseconds(total), FillBehavior = FillBehavior.Stop };
+                enter.KeyFrames.Add(new DiscreteDoubleKeyFrame(step.Item3, KeyTime.FromPercent(0)));
+                enter.KeyFrames.Add(new DiscreteDoubleKeyFrame(step.Item3, KeyTime.FromPercent(start)));
+                enter.KeyFrames.Add(new EasingDoubleKeyFrame((double)step.Item1.GetAnimationBaseValue(step.Item2), KeyTime.FromPercent(1),
+                    new CubicEase { EasingMode = EasingMode.EaseOut }));
+                step.Item1.BeginAnimation(step.Item2, enter);
+            }
+        }
+
+        // While the child moves the pointer, the sky twinkles and the moon breathes. Three seconds
+        // after the pointer stops, everything fades back to its resting look and the scene is still.
+        private void UpdateTwinkle()
+        {
+            bool wanted = CanPlayWithScenery && DateTime.UtcNow - lastMove < TimeSpan.FromSeconds(3);
+            if (wanted == twinkling) return;
+            twinkling = wanted;
+            var sine = new SineEase { EasingMode = EasingMode.EaseInOut };
+            int i = 0;
+            foreach (UIElement star in Twinkles.Children)
+            {
+                if (!wanted) { Settle(star, UIElement.OpacityProperty); continue; }
+                var twinkle = new DoubleAnimationUsingKeyFrames
+                {
+                    Duration = TimeSpan.FromMilliseconds(2200 + i % 4 * 450), BeginTime = TimeSpan.FromMilliseconds(i * 230),
+                    RepeatBehavior = RepeatBehavior.Forever
+                };
+                twinkle.KeyFrames.Add(new EasingDoubleKeyFrame(1, KeyTime.FromPercent(0.3), sine));
+                twinkle.KeyFrames.Add(new EasingDoubleKeyFrame(0.25, KeyTime.FromPercent(0.7), sine));
+                twinkle.KeyFrames.Add(new EasingDoubleKeyFrame(0.6, KeyTime.FromPercent(1), sine));
+                // Gentle fades look the same at 30 fps and cost half as much on older machines.
+                Timeline.SetDesiredFrameRate(twinkle, 30);
+                star.BeginAnimation(UIElement.OpacityProperty, twinkle);
+                i++;
+            }
+            if (!wanted) { Settle(MoonGlow, UIElement.OpacityProperty); return; }
+            var breathe = new DoubleAnimationUsingKeyFrames { Duration = TimeSpan.FromMilliseconds(3600), RepeatBehavior = RepeatBehavior.Forever };
+            breathe.KeyFrames.Add(new EasingDoubleKeyFrame(0.55, KeyTime.FromPercent(0.5), sine));
+            breathe.KeyFrames.Add(new EasingDoubleKeyFrame(1, KeyTime.FromPercent(1), sine));
+            Timeline.SetDesiredFrameRate(breathe, 30);
+            MoonGlow.BeginAnimation(UIElement.OpacityProperty, breathe);
+        }
+
+        // Ease from the value on screen back to the resting value, then release the property.
+        private static void Settle(IAnimatable target, DependencyProperty property)
+        {
+            target.BeginAnimation(property, new DoubleAnimation
+            {
+                To = (double)target.GetAnimationBaseValue(property), Duration = TimeSpan.FromMilliseconds(600),
+                FillBehavior = FillBehavior.Stop, EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut }
+            });
+        }
+
         private void PlaceGroundToys()
         {
             // The owl and fireflies sit near the bottom corners. Hide either one rather than let it
@@ -497,6 +565,9 @@ namespace KidLauncher
                         TranslateTransform.XProperty, TranslateTransform.YProperty })
                         if (property.OwnerType.IsInstanceOfType(part)) part.BeginAnimation(property, null);
             MoonHalo.BeginAnimation(UIElement.OpacityProperty, null); MoonHalo.Opacity = 0;
+            twinkling = false;
+            MoonGlow.BeginAnimation(UIElement.OpacityProperty, null);
+            foreach (UIElement star in Twinkles.Children) star.BeginAnimation(UIElement.OpacityProperty, null);
             foreach (var element in new UIElement[] { StarThread, StarTrace, ShootingStar, OwlEyes, OwlSleep, OwlDreams,
                 Firefly1, Firefly2, Firefly3, Firefly4, Firefly5, Firefly6 })
                 element.BeginAnimation(UIElement.OpacityProperty, null);

@@ -220,7 +220,8 @@ namespace KidLauncher.E2E
             Check(changedPixels("02-reduced-motion.png", "02-reduced-motion-interactions.png", room.Current.BoundingRectangle, 1) == 0,
                 "hovering and clicking sky and garden toys does not animate with reduced motion enabled");
             Desktop.ClientAreaAnimation = true;
-            Thread.Sleep(400);
+            // The sky twinkles for three seconds after the last pointer movement, then fades to rest.
+            Thread.Sleep(5500);
             Desktop.Capture(Path.Combine(output, "02-launcher-ready.png"));
             Thread.Sleep(400);
             Desktop.Capture(Path.Combine(output, "02-launcher-idle.png"));
@@ -236,6 +237,28 @@ namespace KidLauncher.E2E
                 var starsBounds = stars.Current.BoundingRectangle;
                 var owlBounds = owl.Current.BoundingRectangle;
                 var firefliesBounds = fireflies.Current.BoundingRectangle;
+                // Map open-sky twinkle stars from the 1920x1080 scenery canvas, which fills the
+                // window like UniformToFill, to screen rectangles.
+                var scene = room.Current.BoundingRectangle;
+                double s = Math.Max(scene.Width / 1920, scene.Height / 1080);
+                Func<string, int> twinkleChange = name => new[] { new System.Windows.Point(700, 50), new System.Windows.Point(1000, 20),
+                    new System.Windows.Point(1240, 40), new System.Windows.Point(420, 290), new System.Windows.Point(1080, 300) }
+                    .Sum(star => changedFromReady(name, new System.Windows.Rect(scene.Left + (scene.Width - 1920 * s) / 2 + (star.X - 16) * s,
+                        scene.Top + (scene.Height - 1080 * s) / 2 + (star.Y - 16) * s, 32 * s, 32 * s)));
+                Desktop.MovePointer(60, 4); Thread.Sleep(900);
+                Desktop.Capture(Path.Combine(output, "02-twinkle-a.png"));
+                Thread.Sleep(800);
+                Desktop.Capture(Path.Combine(output, "02-twinkle-b.png"));
+                Check(Math.Max(twinkleChange("02-twinkle-a.png"), twinkleChange("02-twinkle-b.png")) > 10,
+                    "moving the pointer makes the sky twinkle");
+                Desktop.MovePointer(4, 4); Thread.Sleep(5500);
+                Desktop.Capture(Path.Combine(output, "02-twinkle-rested.png"));
+                Thread.Sleep(500);
+                Desktop.Capture(Path.Combine(output, "02-twinkle-rested-later.png"));
+                Check(File.ReadAllBytes(Path.Combine(output, "02-twinkle-rested.png"))
+                    .SequenceEqual(File.ReadAllBytes(Path.Combine(output, "02-twinkle-rested-later.png"))) &&
+                    changedPixels("02-launcher-ready.png", "02-twinkle-rested.png", room.Current.BoundingRectangle, 48) == 0,
+                    "the twinkling sky fades back to a still resting scene after the pointer stops");
                 Move(moon); Thread.Sleep(350);
                 Click(moon); Desktop.MovePointer(4, 4); Thread.Sleep(60);
                 Desktop.Capture(Path.Combine(output, "02-shooting-star.png"));
@@ -254,7 +277,7 @@ namespace KidLauncher.E2E
                 Desktop.Capture(Path.Combine(output, "02-fireflies.png"));
                 Check(changedFromReady("02-fireflies.png", firefliesBounds) > 25, "clicking the fireflies sends them dancing");
                 Click(stars); Thread.Sleep(150); Click(stars);
-                Desktop.MovePointer(4, 4); Thread.Sleep(2200);
+                Desktop.MovePointer(4, 4); Thread.Sleep(5500);
                 Desktop.Capture(Path.Combine(output, "02-sky-settled.png"));
                 Check(moon.Current.BoundingRectangle == moonBounds && stars.Current.BoundingRectangle == starsBounds &&
                     owl.Current.BoundingRectangle == owlBounds && fireflies.Current.BoundingRectangle == firefliesBounds,
