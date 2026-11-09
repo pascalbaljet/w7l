@@ -39,6 +39,9 @@ namespace KidLauncher
         private bool exitRequested;
         private bool started;
         private bool twinkling;
+        private readonly DispatcherTimer surpriseTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+        private readonly Random random = new Random();
+        private int lastSurprise = -1;
         private readonly bool smokeTest;
         private DateTime lastMove = DateTime.UtcNow;
         private DateTime lastWheel = DateTime.MinValue;
@@ -113,6 +116,8 @@ namespace KidLauncher
                     Mouse.OverrideCursor = Cursors.None;
             };
             idleTimer.Start();
+            surpriseTimer.Tick += (s, e) => PlaySurprise();
+            surpriseTimer.Start();
         }
 
         private async Task InitializeAsync()
@@ -366,10 +371,15 @@ namespace KidLauncher
             if (!CanPlayWithScenery) return;
             PulseScenery(MoonBody, 1.1, -10);
             var origin = Moon.TranslatePoint(new Point(12, 12), BackdropAccents);
+            SendShootingStar(origin, Math.Max(12, origin.X - 340), origin.Y + 70, 900);
+        }
+
+        private void SendShootingStar(Point from, double toX, double toY, int milliseconds)
+        {
             var travel = (TranslateTransform)ShootingStar.RenderTransform;
-            AnimateValue(travel, TranslateTransform.XProperty, Math.Max(12, origin.X - 340), 900, origin.X);
-            AnimateValue(travel, TranslateTransform.YProperty, origin.Y + 70, 900, origin.Y);
-            var glow = new DoubleAnimationUsingKeyFrames { Duration = TimeSpan.FromMilliseconds(900), FillBehavior = FillBehavior.Stop };
+            AnimateValue(travel, TranslateTransform.XProperty, toX, milliseconds, from.X);
+            AnimateValue(travel, TranslateTransform.YProperty, toY, milliseconds, from.Y);
+            var glow = new DoubleAnimationUsingKeyFrames { Duration = TimeSpan.FromMilliseconds(milliseconds), FillBehavior = FillBehavior.Stop };
             glow.KeyFrames.Add(new LinearDoubleKeyFrame(0, KeyTime.FromPercent(0)));
             glow.KeyFrames.Add(new LinearDoubleKeyFrame(1, KeyTime.FromPercent(0.1)));
             glow.KeyFrames.Add(new LinearDoubleKeyFrame(1, KeyTime.FromPercent(0.55)));
@@ -383,14 +393,14 @@ namespace KidLauncher
         {
             if (!CanPlayWithScenery) return;
             int delay = 0;
-            foreach (var star in new[] { StarOne, StarTwo, StarThree, StarFour })
+            foreach (var star in new[] { StarOne, StarTwo, StarThree, StarFour, StarFive, StarSix })
             {
                 PulseScenery(star, 1.55, 18, delay);
-                delay += 120;
+                delay += 100;
             }
             Swing(StarThread, UIElement.OpacityProperty, 0.6, 900);
             Hold(StarTrace, UIElement.OpacityProperty, 0.85, 1300);
-            StarTrace.BeginAnimation(System.Windows.Shapes.Shape.StrokeDashOffsetProperty, new DoubleAnimation(240, 0, TimeSpan.FromMilliseconds(760))
+            StarTrace.BeginAnimation(System.Windows.Shapes.Shape.StrokeDashOffsetProperty, new DoubleAnimation(130, 0, TimeSpan.FromMilliseconds(820))
             {
                 FillBehavior = FillBehavior.Stop, EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
             });
@@ -460,11 +470,41 @@ namespace KidLauncher
             }
         }
 
-        // While the child moves the pointer, the sky twinkles and the moon breathes. Three seconds
-        // after the pointer stops, everything fades back to its resting look and the scene is still.
+        private bool IdleMagic => config?.Appearance?.IdleAnimations != false;
+
+        // While the launcher rests, something small happens every few seconds. The first surprise
+        // comes soon after the scene appears; later ones wait 5 to 9 seconds and never repeat in a row.
+        private void PlaySurprise()
+        {
+            // Retry soon while a game, overlay, or menu blocks the scene, so a surprise follows shortly after it returns.
+            if (!IdleMagic || !CanPlayWithScenery) { surpriseTimer.Interval = TimeSpan.FromSeconds(3); return; }
+            surpriseTimer.Interval = TimeSpan.FromMilliseconds(random.Next(5000, 9000));
+            int next;
+            do next = random.Next(5); while (next == lastSurprise);
+            lastSurprise = next;
+            switch (next)
+            {
+                case 0:
+                    double width = BackdropAccents.ActualWidth;
+                    var from = new Point(width * (0.45 + random.NextDouble() * 0.3), 30 + random.NextDouble() * 60);
+                    SendShootingStar(from, from.X - width * 0.22, from.Y + 60 + random.NextDouble() * 40, 1100);
+                    break;
+                case 1: WakeOwl(false); break;
+                case 2: StirFireflies(false); break;
+                case 3: WakeStars(); break;
+                default:
+                    PulseScenery(MoonBody, 1.06, -7);
+                    Hold(MoonHalo, UIElement.OpacityProperty, 0.55, 1200);
+                    break;
+            }
+        }
+
+        // The sky twinkles and the moon breathes. With idle surprises on, this continues while the
+        // launcher rests. With them off, it runs only while the pointer moves and fades back to the
+        // resting look three seconds after the pointer stops, leaving the scene still.
         private void UpdateTwinkle()
         {
-            bool wanted = CanPlayWithScenery && DateTime.UtcNow - lastMove < TimeSpan.FromSeconds(3);
+            bool wanted = CanPlayWithScenery && (IdleMagic || DateTime.UtcNow - lastMove < TimeSpan.FromSeconds(3));
             if (wanted == twinkling) return;
             twinkling = wanted;
             var sine = new SineEase { EasingMode = EasingMode.EaseInOut };
@@ -526,7 +566,9 @@ namespace KidLauncher
             var transforms = ((TransformGroup)glyph.RenderTransform).Children;
             Swing(transforms[0], ScaleTransform.ScaleXProperty, size, 680, delay);
             Swing(transforms[0], ScaleTransform.ScaleYProperty, size, 680, delay);
-            Swing(transforms[1], RotateTransform.AngleProperty, angle, 680, delay);
+            // Tilt relative to the glyph's resting angle, so pre-tilted stars nod around their own pose.
+            double rest = (double)transforms[1].GetAnimationBaseValue(RotateTransform.AngleProperty);
+            Swing(transforms[1], RotateTransform.AngleProperty, rest + angle, 680, delay);
         }
 
         // Out-and-back motion. With no keyframe at time zero, a retrigger starts from the value
@@ -559,7 +601,7 @@ namespace KidLauncher
 
         private void StopScenery()
         {
-            foreach (var glyph in new FrameworkElement[] { MoonBody, StarOne, StarTwo, StarThree, StarFour, OwlBird })
+            foreach (var glyph in new FrameworkElement[] { MoonBody, StarOne, StarTwo, StarThree, StarFour, StarFive, StarSix, OwlBird })
                 foreach (var part in ((TransformGroup)glyph.RenderTransform).Children)
                     foreach (var property in new[] { ScaleTransform.ScaleXProperty, ScaleTransform.ScaleYProperty, RotateTransform.AngleProperty,
                         TranslateTransform.XProperty, TranslateTransform.YProperty })
@@ -936,6 +978,7 @@ namespace KidLauncher
             Microsoft.Win32.SystemEvents.DisplaySettingsChanged -= DisplaySettingsChanged;
             SystemParameters.StaticPropertyChanged -= MotionSettingsChanged;
             idleTimer.Stop();
+            surpriseTimer.Stop();
             if (hotkey != null) hotkey.Dispose();
             Mouse.OverrideCursor = null;
         }

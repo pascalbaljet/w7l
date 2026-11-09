@@ -56,7 +56,7 @@ function Invoke-Journey([string]$Name, [bool]$Negative) {
         if (Test-Path $logs) { Copy-Item $logs "$output/application-logs" -Recurse -Force }
         $journal = Join-Path $app 'Data/display-session.json'
         if (Test-Path $journal) { Copy-Item $journal "$output/pending-session.json" }
-        foreach ($recording in @('frames', 'resolution-frames', 'pin-free-frames', 'motion-frames')) {
+        foreach ($recording in @('frames', 'resolution-frames', 'pin-free-frames', 'idle-frames', 'motion-frames')) {
             $frames = Join-Path $output $recording
             if (Test-Path "$frames/frame-000000.png") {
                 $video = if ($recording -eq 'frames') { 'journey' } else { $recording.Replace('-frames', '') }

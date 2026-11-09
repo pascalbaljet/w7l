@@ -42,6 +42,7 @@ namespace KidLauncher.Core
         public int CornerRadius { get; set; } = 24;
         public bool ShowTitles { get; set; } = true;
         public int CursorHideSeconds { get; set; } = 5;
+        public bool IdleAnimations { get; set; } = true;
     }
 
     public sealed class ControlSettings

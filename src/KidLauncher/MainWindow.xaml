@@ -60,25 +60,35 @@
    <Button x:Name="WishingStars" Style="{StaticResource SkyToy}" Width="240" Height="120" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="140,65,0,0"
     KeyboardNavigation.TabIndex="1001" AutomationProperties.Name="Stars" Click="Stars_Click">
     <Canvas Width="240" Height="120" IsHitTestVisible="False">
-     <Ellipse Canvas.Left="2" Canvas.Top="34" Width="36" Height="36" Fill="{StaticResource SoftGlow}"/>
-     <Ellipse Canvas.Left="79" Canvas.Top="3" Width="26" Height="26" Fill="{StaticResource SoftGlow}"/>
-     <Ellipse Canvas.Left="132" Canvas.Top="54" Width="36" Height="36" Fill="{StaticResource SoftGlow}"/>
-     <Ellipse Canvas.Left="192" Canvas.Top="25" Width="26" Height="26" Fill="{StaticResource SoftGlow}"/>
-     <Path x:Name="StarThread" Stroke="#EAD9B0" Opacity="0.22" StrokeThickness="1" Data="M20,52 L92,16 150,72 205,38"/>
-     <!-- The path is about 226px long, so a 240px dash animated from offset 240 to 0 draws it once. -->
-     <Path x:Name="StarTrace" Stroke="#FFF1CD" Opacity="0" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-      StrokeDashArray="240 240" Data="M20,52 L92,16 150,72 205,38"/>
-     <Path x:Name="StarOne" Canvas.Left="8" Canvas.Top="40" Fill="#EAD9B0" Opacity="0.8" Data="M12,0 L15,9 24,12 15,15 12,24 9,15 0,12 9,9Z" RenderTransformOrigin="0.5,0.5">
-      <Path.RenderTransform><TransformGroup><ScaleTransform/><RotateTransform/></TransformGroup></Path.RenderTransform>
+     <Ellipse Canvas.Left="2.0" Canvas.Top="60.0" Width="40" Height="40" Fill="{StaticResource SoftGlow}"/>
+     <Ellipse Canvas.Left="88.0" Canvas.Top="44.0" Width="30" Height="30" Fill="{StaticResource SoftGlow}"/>
+     <Ellipse Canvas.Left="107.0" Canvas.Top="-1.0" Width="44" Height="44" Fill="{StaticResource SoftGlow}"/>
+     <Ellipse Canvas.Left="175.0" Canvas.Top="23.0" Width="24" Height="24" Fill="{StaticResource SoftGlow}"/>
+     <Path x:Name="StarThread" Stroke="#EAD9B0" Opacity="0.22" StrokeThickness="1" StrokeLineJoin="Round" Data="M22,80 L63,51 103,59 129,21 187,35 207,89"/>
+     <!-- The line is about 251px long. Dash units are multiples of the 2px stroke, so a 130-unit dash
+          animated from offset 130 to 0 draws it once. -->
+     <Path x:Name="StarTrace" Stroke="#FFF1CD" Opacity="0" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+      StrokeDashArray="130 130" Data="M22,80 L63,51 103,59 129,21 187,35 207,89"/>
+     <Ellipse Canvas.Left="44" Canvas.Top="98" Width="3" Height="3" Fill="#90EAD9B0"/>
+     <Ellipse Canvas.Left="161" Canvas.Top="70" Width="2.5" Height="2.5" Fill="#70EAD9B0"/>
+     <Ellipse Canvas.Left="226" Canvas.Top="8" Width="3.5" Height="3.5" Fill="#A0EAD9B0"/>
+     <Path x:Name="StarOne" Canvas.Left="12.0" Canvas.Top="70.0" Width="20" Height="20" Stretch="Uniform" Fill="#EAD9B0" Opacity="0.85" Data="M12,0 L14.6,9.4 24,12 14.6,14.6 12,24 9.4,14.6 0,12 9.4,9.4Z" RenderTransformOrigin="0.5,0.5">
+      <Path.RenderTransform><TransformGroup><ScaleTransform/><RotateTransform Angle="8"/></TransformGroup></Path.RenderTransform>
      </Path>
-     <Path x:Name="StarTwo" Canvas.Left="84" Canvas.Top="8" Fill="#EAD9B0" Opacity="0.8" Data="M8,0 L10,6 16,8 10,10 8,16 6,10 0,8 6,6Z" RenderTransformOrigin="0.5,0.5">
-      <Path.RenderTransform><TransformGroup><ScaleTransform/><RotateTransform/></TransformGroup></Path.RenderTransform>
+     <Path x:Name="StarTwo" Canvas.Left="57.5" Canvas.Top="45.5" Width="11" Height="11" Stretch="Uniform" Fill="#F4E6C4" Opacity="0.7" Data="M12,0 L14.6,9.4 24,12 14.6,14.6 12,24 9.4,14.6 0,12 9.4,9.4Z" RenderTransformOrigin="0.5,0.5">
+      <Path.RenderTransform><TransformGroup><ScaleTransform/><RotateTransform Angle="-14"/></TransformGroup></Path.RenderTransform>
      </Path>
-     <Path x:Name="StarThree" Canvas.Left="138" Canvas.Top="60" Fill="#EAD9B0" Opacity="0.8" Data="M12,0 L15,9 24,12 15,15 12,24 9,15 0,12 9,9Z" RenderTransformOrigin="0.5,0.5">
-      <Path.RenderTransform><TransformGroup><ScaleTransform/><RotateTransform/></TransformGroup></Path.RenderTransform>
+     <Path x:Name="StarThree" Canvas.Left="95.5" Canvas.Top="51.5" Width="15" Height="15" Stretch="Uniform" Fill="#EAD9B0" Opacity="0.8" Data="M12,0 L14.6,9.4 24,12 14.6,14.6 12,24 9.4,14.6 0,12 9.4,9.4Z" RenderTransformOrigin="0.5,0.5">
+      <Path.RenderTransform><TransformGroup><ScaleTransform/><RotateTransform Angle="22"/></TransformGroup></Path.RenderTransform>
      </Path>
-     <Path x:Name="StarFour" Canvas.Left="197" Canvas.Top="30" Fill="#EAD9B0" Opacity="0.8" Data="M8,0 L10,6 16,8 10,10 8,16 6,10 0,8 6,6Z" RenderTransformOrigin="0.5,0.5">
-      <Path.RenderTransform><TransformGroup><ScaleTransform/><RotateTransform/></TransformGroup></Path.RenderTransform>
+     <Path x:Name="StarFour" Canvas.Left="117.5" Canvas.Top="9.5" Width="23" Height="23" Stretch="Uniform" Fill="#FFF1CD" Opacity="0.95" Data="M12,0 L14.6,9.4 24,12 14.6,14.6 12,24 9.4,14.6 0,12 9.4,9.4Z" RenderTransformOrigin="0.5,0.5">
+      <Path.RenderTransform><TransformGroup><ScaleTransform/><RotateTransform Angle="-6"/></TransformGroup></Path.RenderTransform>
+     </Path>
+     <Path x:Name="StarFive" Canvas.Left="181.0" Canvas.Top="29.0" Width="12" Height="12" Stretch="Uniform" Fill="#F4E6C4" Opacity="0.75" Data="M12,0 L14.6,9.4 24,12 14.6,14.6 12,24 9.4,14.6 0,12 9.4,9.4Z" RenderTransformOrigin="0.5,0.5">
+      <Path.RenderTransform><TransformGroup><ScaleTransform/><RotateTransform Angle="16"/></TransformGroup></Path.RenderTransform>
+     </Path>
+     <Path x:Name="StarSix" Canvas.Left="202.5" Canvas.Top="84.5" Width="9" Height="9" Stretch="Uniform" Fill="#EAD9B0" Opacity="0.65" Data="M12,0 L14.6,9.4 24,12 14.6,14.6 12,24 9.4,14.6 0,12 9.4,9.4Z" RenderTransformOrigin="0.5,0.5">
+      <Path.RenderTransform><TransformGroup><ScaleTransform/><RotateTransform Angle="-20"/></TransformGroup></Path.RenderTransform>
      </Path>
     </Canvas>
    </Button>

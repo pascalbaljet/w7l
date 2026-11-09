@@ -27,6 +27,8 @@ namespace KidLauncher.Configurator
             p.Children.Add(Buttons(Button("Browse image…", () => { var path = Browse("Images|*.png;*.jpg;*.jpeg"); if (path != null) background.Text = path; }), Button("Clear", () => background.Text = "")));
             Field(p, "Tile corner radius", a, "CornerRadius", true); Check(p, "Show game titles", a, "ShowTitles", true);
             Field(p, "Hide cursor after inactivity (seconds)", a, "CursorHideSeconds", true);
+            Check(p, "Gentle surprises while the launcher rests", a, "IdleAnimations");
+            p.Children.Add(Note("Stars twinkle and the owl, fireflies, moon, or a shooting star do something small every few seconds. Windows reduced motion always turns this off."));
             root.Children.Add(Scroll(p));
             var right = new DockPanel { Margin = new Thickness(12) }; Grid.SetColumn(right, 1); root.Children.Add(right);
             var title = Note("Live 1920 × 1080 layout preview. Only visible games appear. Images fill each tile without distortion."); DockPanel.SetDock(title, Dock.Top); right.Children.Add(title);
