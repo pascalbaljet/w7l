@@ -256,16 +256,12 @@ namespace KidLauncher
             double availableHeight = Math.Max(1, PlayRoom.ActualHeight - (Navigation.Visibility == Visibility.Visible ? 88 : 0));
             double ratio = TileGrid.CardRatio(config.Appearance.ShowTitles);
             int cards = Tiles.Children.OfType<Button>().Count();
-            Func<double, double> fit = width =>
+            if (config.Appearance.AllGamesOnOneScreen && cards > 0)
             {
-                if (config.Appearance.AllGamesOnOneScreen && cards > 0)
-                {
-                    Tiles.Columns = TileGrid.FitColumns(cards, width, availableHeight, ratio);
-                    Tiles.Rows = (cards + Tiles.Columns - 1) / Tiles.Columns;
-                }
-                return Math.Min(340, Math.Min(width / Tiles.Columns, availableHeight / Tiles.Rows / ratio));
-            };
-            double cell = fit(PlayRoom.ActualWidth);
+                Tiles.Columns = TileGrid.FitColumns(cards, PlayRoom.ActualWidth, availableHeight, ratio);
+                Tiles.Rows = (cards + Tiles.Columns - 1) / Tiles.Columns;
+            }
+            double cell = Math.Min(340, Math.Min(PlayRoom.ActualWidth / Tiles.Columns, availableHeight / Tiles.Rows / ratio));
             // Leave the corner toys a strip on each side of the cards, so a full screen keeps its moon,
             // stars, owl and fireflies. When that would shrink the cards by more than an eighth, the
             // cards keep their size and PlaceCornerToys hides the toys they cover instead.
@@ -274,12 +270,10 @@ namespace KidLauncher
                 // DesiredSize includes each toy's corner margin and the constellation's upright rotation.
                 // PlaceCornerToys pads toys by 12 and treats touching edges as overlap, so leave a little more.
                 double strip = new FrameworkElement[] { Moon, WishingStars, Owl, Fireflies }.Max(toy => toy.DesiredSize.Width) + 16;
+                // Keep the same columns and rows: the strips may shrink the grid, never reshape it into ragged rows.
                 double narrower = Backdrop.ActualWidth - 2 * strip;
-                if (narrower > 0 && narrower < PlayRoom.ActualWidth)
-                {
-                    double smaller = fit(narrower);
-                    cell = smaller >= cell * 0.88 ? smaller : fit(PlayRoom.ActualWidth);
-                }
+                double smaller = Math.Min(340, Math.Min(narrower / Tiles.Columns, availableHeight / Tiles.Rows / ratio));
+                if (narrower > 0 && smaller >= cell * 0.88) cell = Math.Min(cell, smaller);
             }
             Tiles.Width = cell * Tiles.Columns;
             Tiles.Height = cell * ratio * Tiles.Rows;
