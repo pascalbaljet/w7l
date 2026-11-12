@@ -329,8 +329,9 @@ namespace KidLauncher.E2E
                 var resting = tile.Current.BoundingRectangle;
                 var neighborResting = neighbor.Current.BoundingRectangle;
                 var scene = room.Current.BoundingRectangle;
-                var lastTile = Find(room, ControlType.Button, Missing).Current.BoundingRectangle;
-                Check(Math.Abs((resting.Left + lastTile.Right) / 2 - (scene.Left + scene.Width / 2)) < 2 &&
+                // Games are shuffled per launcher start, so measure the row from its outermost cards.
+                var row = new[] { resting, neighborResting, Find(room, ControlType.Button, Missing).Current.BoundingRectangle };
+                Check(Math.Abs((row.Min(r => r.Left) + row.Max(r => r.Right)) / 2 - (scene.Left + scene.Width / 2)) < 2 &&
                     Math.Abs(resting.Top + resting.Height / 2 - (scene.Top + scene.Height / 2)) < 20,
                     "a partially filled page centers its cards instead of leaving empty grid cells");
                 Desktop.MovePointer((int)(scene.Left + scene.Width * 0.2), (int)(scene.Top + scene.Height * 0.7));
