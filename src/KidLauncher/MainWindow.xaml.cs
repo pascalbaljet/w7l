@@ -256,12 +256,30 @@ namespace KidLauncher
             double availableHeight = Math.Max(1, PlayRoom.ActualHeight - (Navigation.Visibility == Visibility.Visible ? 88 : 0));
             double ratio = TileGrid.CardRatio(config.Appearance.ShowTitles);
             int cards = Tiles.Children.OfType<Button>().Count();
-            if (config.Appearance.AllGamesOnOneScreen && cards > 0)
+            Func<double, double> fit = width =>
             {
-                Tiles.Columns = TileGrid.FitColumns(cards, PlayRoom.ActualWidth, availableHeight, ratio);
-                Tiles.Rows = (cards + Tiles.Columns - 1) / Tiles.Columns;
+                if (config.Appearance.AllGamesOnOneScreen && cards > 0)
+                {
+                    Tiles.Columns = TileGrid.FitColumns(cards, width, availableHeight, ratio);
+                    Tiles.Rows = (cards + Tiles.Columns - 1) / Tiles.Columns;
+                }
+                return Math.Min(340, Math.Min(width / Tiles.Columns, availableHeight / Tiles.Rows / ratio));
+            };
+            double cell = fit(PlayRoom.ActualWidth);
+            // Leave the corner toys a strip on each side of the cards, so a full screen keeps its moon,
+            // stars, owl and fireflies. When that would shrink the cards by more than an eighth, the
+            // cards keep their size and PlaceCornerToys hides the toys they cover instead.
+            if (BackdropAccents.Visibility == Visibility.Visible)
+            {
+                // DesiredSize includes each toy's corner margin and the constellation's upright rotation.
+                double strip = new FrameworkElement[] { Moon, WishingStars, Owl, Fireflies }.Max(toy => toy.DesiredSize.Width) + 12;
+                double narrower = Backdrop.ActualWidth - 2 * strip;
+                if (narrower > 0 && narrower < PlayRoom.ActualWidth)
+                {
+                    double smaller = fit(narrower);
+                    cell = smaller >= cell * 0.88 ? smaller : fit(PlayRoom.ActualWidth);
+                }
             }
-            double cell = Math.Min(340, Math.Min(PlayRoom.ActualWidth / Tiles.Columns, availableHeight / Tiles.Rows / ratio));
             Tiles.Width = cell * Tiles.Columns;
             Tiles.Height = cell * ratio * Tiles.Rows;
             foreach (var title in titles) title.FontSize = Math.Max(12, Math.Min(22, cell * 0.068));
@@ -323,9 +341,15 @@ namespace KidLauncher
             }
             var scale = new ScaleTransform();
             var lift = new TranslateTransform();
+            // Each card leans a little, like a picture pasted into a scrapbook. The lean is fixed for the
+            // launcher session, so a card looks the same after a game, and straightens on hover.
+            var lean = new Random(shuffleSeed ^ (game.Title ?? "").GetHashCode());
+            double tilt = (0.6 + lean.NextDouble() * 1.2) * (lean.Next(2) == 0 ? -1 : 1);
+            var tilting = new RotateTransform(tilt);
             var transforms = new TransformGroup();
             transforms.Children.Add(scale);
             transforms.Children.Add(lift);
+            transforms.Children.Add(tilting);
             var visual = new Grid { IsHitTestVisible = false, RenderTransformOrigin = new Point(0.5, 0.5), RenderTransform = transforms };
             var radius = new CornerRadius(Math.Max(0, config.Appearance.CornerRadius));
             visual.Children.Add(new Border { Background = new SolidColorBrush(Color.FromArgb(55, 21, 15, 36)), CornerRadius = radius,
@@ -387,6 +411,7 @@ namespace KidLauncher
                 AnimateValue(scale, ScaleTransform.ScaleXProperty, active ? 1.025 : 1, 180);
                 AnimateValue(scale, ScaleTransform.ScaleYProperty, active ? 1.025 : 1, 180);
                 AnimateValue(lift, TranslateTransform.YProperty, active ? -4 : 0, 180);
+                AnimateValue(tilting, RotateTransform.AngleProperty, active ? 0 : tilt, 220);
                 AnimateValue(ring, UIElement.OpacityProperty, active ? 1 : 0, 140);
                 Panel.SetZIndex(button, active ? 1 : 0);
                 if (!active) glint.BeginAnimation(UIElement.OpacityProperty, null);
@@ -396,7 +421,7 @@ namespace KidLauncher
             button.IsKeyboardFocusWithinChanged += (s, e) => updateFeedback();
             button.IsEnabledChanged += (s, e) => updateFeedback();
             AutomationProperties.SetName(button, game.Title);
-            button.Click += async (s, e) => { twinkle(); await LaunchAsync(game); };
+            button.Click += async (s, e) => { twinkle(); await LaunchAsync(game, visual); };
             return button;
         }
 
@@ -591,7 +616,7 @@ namespace KidLauncher
         {
             // The sky and garden toys sit in the corners. Hide any toy rather than let it peek out
             // from under a card or page arrow on small screens or full pages.
-            if (!BackdropAccents.IsVisible || Tiles.ActualWidth <= 0) return;
+            if (BackdropAccents.Visibility != Visibility.Visible || Tiles.ActualWidth <= 0) return;
             var blocked = new List<Rect> { Bounds(Tiles) };
             if (Navigation.IsVisible) { blocked.Add(Bounds(Previous)); blocked.Add(Bounds(Next)); }
             foreach (var toy in new FrameworkElement[] { Moon, WishingStars, Owl, Fireflies })
@@ -603,7 +628,8 @@ namespace KidLauncher
             }
         }
 
-        private Rect Bounds(FrameworkElement element) { return new Rect(element.TranslatePoint(new Point(), Backdrop), element.RenderSize); }
+        // TransformBounds includes layout transforms, such as the upright constellation.
+        private Rect Bounds(FrameworkElement element) { return element.TransformToVisual(Backdrop).TransformBounds(new Rect(element.RenderSize)); }
 
         private void PulseScenery(FrameworkElement glyph, double size, double angle, int delay = 0)
         {
@@ -684,14 +710,16 @@ namespace KidLauncher
             } : null);
         }
 
-        private async Task LaunchAsync(Game game)
+        private async Task LaunchAsync(Game game, FrameworkElement card)
         {
             if (OperationActive || !recovered || Overlay.Visibility == Visibility.Visible || adultOpen) return;
             busy = true;
-            PlayRoom.IsEnabled = false;
-            ShowOverlay(L("Let's go!", "Daar gaan we!"), L("Opening ", "We starten ") + game.Title + "…", false);
             try
             {
+                // Let the chosen card pop before the loading screen covers it. busy already blocks a second launch.
+                if (MotionEnabled) { Celebrate(card); await Task.Delay(450); }
+                PlayRoom.IsEnabled = false;
+                ShowOverlay(L("Let's go!", "Daar gaan we!"), L("Opening ", "We starten ") + game.Title + "…", false);
                 log.Write("Game selected: " + game.Title);
                 await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Render);
                 await Task.Delay(180); // Let one loading frame paint even for instant-start games.
@@ -702,10 +730,56 @@ namespace KidLauncher
             catch (Exception ex) { Error(L("That adventure couldn't start.", "Dit avontuur kon niet starten."), ex); }
             finally
             {
+                Sparkles.Children.Clear();
                 if (hotkey != null) hotkey.Enabled = false;
                 busy = false;
                 PlayRoom.IsEnabled = true;
                 BringBack();
+            }
+        }
+
+        // The card bounces and a ring of little stars bursts out of it, like a storybook page opening.
+        private void Celebrate(FrameworkElement card)
+        {
+            Sparkles.Children.Clear();
+            var scale = (ScaleTransform)((TransformGroup)card.RenderTransform).Children[0];
+            Swing(scale, ScaleTransform.ScaleXProperty, 1.08, 420, 0, 0.35);
+            Swing(scale, ScaleTransform.ScaleYProperty, 1.08, 420, 0, 0.35);
+            var center = card.TranslatePoint(new Point(card.ActualWidth / 2, card.ActualHeight / 2), Sparkles);
+            var colors = new[] { Color.FromRgb(255, 241, 205), Color.FromRgb(247, 229, 138), Color.FromRgb(242, 198, 214), Color.FromRgb(207, 197, 230) };
+            var shape = Geometry.Parse("M12,0 L14.6,9.4 24,12 14.6,14.6 12,24 9.4,14.6 0,12 9.4,9.4Z");
+            var duration = TimeSpan.FromMilliseconds(600);
+            for (int i = 0; i < 12; i++)
+            {
+                double angle = (i + random.NextDouble() * 0.6) * Math.PI / 6, size = 14 + random.Next(12);
+                double from = card.ActualWidth * 0.25, to = card.ActualWidth * (0.6 + random.NextDouble() * 0.25);
+                var grow = new ScaleTransform(0.4, 0.4);
+                var move = new TranslateTransform();
+                var transforms = new TransformGroup();
+                transforms.Children.Add(grow);
+                transforms.Children.Add(new RotateTransform(random.Next(-30, 30)));
+                transforms.Children.Add(move);
+                var star = new System.Windows.Shapes.Path
+                {
+                    Data = shape, Stretch = Stretch.Uniform, Width = size, Height = size, Fill = new SolidColorBrush(colors[i % colors.Length]),
+                    RenderTransformOrigin = new Point(0.5, 0.5), RenderTransform = transforms
+                };
+                Canvas.SetLeft(star, center.X - size / 2);
+                Canvas.SetTop(star, center.Y - size / 2);
+                Sparkles.Children.Add(star);
+                var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+                move.BeginAnimation(TranslateTransform.XProperty, new DoubleAnimation(Math.Cos(angle) * from, Math.Cos(angle) * to, duration) { EasingFunction = ease });
+                move.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(Math.Sin(angle) * from, Math.Sin(angle) * to, duration) { EasingFunction = ease });
+                var swell = new DoubleAnimationUsingKeyFrames { Duration = duration };
+                swell.KeyFrames.Add(new EasingDoubleKeyFrame(1.2, KeyTime.FromPercent(0.3), ease));
+                swell.KeyFrames.Add(new LinearDoubleKeyFrame(0.6, KeyTime.FromPercent(1)));
+                grow.BeginAnimation(ScaleTransform.ScaleXProperty, swell);
+                grow.BeginAnimation(ScaleTransform.ScaleYProperty, swell);
+                var fade = new DoubleAnimationUsingKeyFrames { Duration = duration };
+                fade.KeyFrames.Add(new DiscreteDoubleKeyFrame(1, KeyTime.FromPercent(0)));
+                fade.KeyFrames.Add(new LinearDoubleKeyFrame(1, KeyTime.FromPercent(0.5)));
+                fade.KeyFrames.Add(new LinearDoubleKeyFrame(0, KeyTime.FromPercent(1)));
+                star.BeginAnimation(UIElement.OpacityProperty, fade);
             }
         }
 
@@ -836,6 +910,8 @@ namespace KidLauncher
                 if (Tiles.Children.Count != config.Games.Count || Navigation.Visibility == Visibility.Visible)
                     throw new InvalidOperationException("All games must fit on one screen without page arrows.");
                 Capture(directory, prefix + "default.png");
+                if (new FrameworkElement[] { Moon, WishingStars, Owl, Fireflies }.Any(toy => toy.Visibility != Visibility.Visible))
+                    throw new InvalidOperationException("With all " + config.Games.Count + " games on one screen, the moon, stars, owl and fireflies must stay visible beside the cards.");
                 config.Appearance.AllGamesOnOneScreen = false;
                 RenderPage();
                 Next.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
@@ -870,7 +946,7 @@ namespace KidLauncher
             RenderPage();
             if (BackdropAccents.Visibility != Visibility.Collapsed) throw new InvalidOperationException("Wallpaper must suppress scenery.");
             Capture(directory, "launcher-wallpaper.png");
-            File.WriteAllText(Path.Combine(directory, "launcher-checks.txt"), "PASS: Dutch and English loading, error and empty states rendered. All " + config.Games.Count + " games fit on one screen without page arrows; with paging on, 12 tiles on page 1 and the rest on page 2; previous/next Click events update pages without page text or headings.");
+            File.WriteAllText(Path.Combine(directory, "launcher-checks.txt"), "PASS: Dutch and English loading, error and empty states rendered. All " + config.Games.Count + " games fit on one screen without page arrows, with the moon, stars, owl and fireflies visible beside them; with paging on, 12 tiles on page 1 and the rest on page 2; previous/next Click events update pages without page text or headings.");
             authorizedExit = true;
         }
 
@@ -889,6 +965,7 @@ namespace KidLauncher
                 host.Measure(new Size(1920, 1080));
                 host.Arrange(new Rect(0, 0, 1920, 1080));
                 host.UpdateLayout();
+                PlaceCornerToys();
                 if (!Equals(OverlayTitle.Foreground, Foreground))
                     throw new InvalidOperationException("Offscreen capture lost the window text color.");
                 var image = new RenderTargetBitmap(1920, 1080, 96, 96, PixelFormats.Pbgra32);

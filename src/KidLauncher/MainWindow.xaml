@@ -57,8 +57,10 @@
      <Path Stroke="#45E0C4BB" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M86,1080 Q60,960 142,848 M86,1010 Q28,975 26,934 M95,960 Q149,960 178,911 M116,895 Q76,861 84,825 M1810,1080 Q1860,1000 1828,932 M1838,1024 Q1784,1003 1776,973 M1840,990 Q1880,978 1892,944"/>
     </Canvas>
    </Viewbox>
-   <Button x:Name="WishingStars" Style="{StaticResource SkyToy}" Width="240" Height="120" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="140,65,0,0"
+   <Button x:Name="WishingStars" Style="{StaticResource SkyToy}" Width="240" Height="120" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="28,24,0,0"
     KeyboardNavigation.TabIndex="1001" AutomationProperties.Name="Stars" Click="Stars_Click">
+    <!-- Upright, so the constellation fits the strip beside a full grid of cards. -->
+    <Button.LayoutTransform><RotateTransform Angle="90"/></Button.LayoutTransform>
     <Canvas Width="240" Height="120" IsHitTestVisible="False">
      <Ellipse Canvas.Left="2.0" Canvas.Top="60.0" Width="40" Height="40" Fill="{StaticResource SoftGlow}"/>
      <Ellipse Canvas.Left="88.0" Canvas.Top="44.0" Width="30" Height="30" Fill="{StaticResource SoftGlow}"/>
@@ -92,7 +94,7 @@
      </Path>
     </Canvas>
    </Button>
-   <Button x:Name="Moon" Style="{StaticResource SkyToy}" Width="144" Height="144" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,40,60,0"
+   <Button x:Name="Moon" Style="{StaticResource SkyToy}" Width="144" Height="144" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,20,20,0"
     KeyboardNavigation.TabIndex="1000" AutomationProperties.Name="Moon" Click="Moon_Click">
     <Grid Width="144" Height="144" IsHitTestVisible="False">
      <Ellipse x:Name="MoonGlow" Width="144" Height="144" Fill="{StaticResource SoftGlow}"/>
@@ -109,7 +111,7 @@
      </Grid>
     </Grid>
    </Button>
-   <Button x:Name="Owl" Style="{StaticResource SkyToy}" Width="110" Height="120" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="150,0,0,20"
+   <Button x:Name="Owl" Style="{StaticResource SkyToy}" Width="110" Height="120" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="30,0,0,16"
     KeyboardNavigation.TabIndex="1002" AutomationProperties.Name="Owl" Click="Owl_Click">
     <Canvas Width="110" Height="120" IsHitTestVisible="False">
      <Path Stroke="#8C7A8E" StrokeThickness="5" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M4,106 Q52,96 106,104"/>
@@ -143,7 +145,7 @@
      </Canvas>
     </Canvas>
    </Button>
-   <Button x:Name="Fireflies" Style="{StaticResource SkyToy}" Width="150" Height="100" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,150,20"
+   <Button x:Name="Fireflies" Style="{StaticResource SkyToy}" Width="150" Height="100" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,16,16"
     KeyboardNavigation.TabIndex="1003" AutomationProperties.Name="Fireflies" Click="Fireflies_Click">
     <Canvas Width="150" Height="100" IsHitTestVisible="False">
      <Path Stroke="#86AE95" StrokeThickness="2.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Opacity="0.9"
@@ -178,6 +180,7 @@
     <Button x:Name="Next" Content="›" FontSize="36" Background="#665A4B72" HorizontalAlignment="Right" Width="88" Padding="0" Click="Next_Click" AutomationProperties.Name="Next page" />
    </Grid>
   </Grid>
+  <Canvas x:Name="Sparkles" IsHitTestVisible="False"/>
   <Border x:Name="Overlay" Background="#F224253F" Visibility="Visible">
    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="780" Margin="40">
     <TextBlock x:Name="OverlaySymbol" Text="✦" Foreground="#F4DFAC" FontSize="80" HorizontalAlignment="Center" RenderTransformOrigin="0.5,0.5">
