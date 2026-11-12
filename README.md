@@ -12,7 +12,7 @@ For a portable installation, download the release ZIP, for example `KidLauncher-
 
 The children's launcher defaults to Dutch. To select English, open **General → Children's launcher language** in the configurator, save, and reopen the launcher. The configurator stays in English.
 
-The game grid centers the available cards against a moonlit backdrop, without headings or page text. By default, all visible games share one screen, up to 30, and the launcher picks the column count that gives the largest cards. For example, 17 games fit as 6 × 3 at 1920 × 1080. To use pages of **Tile columns** × **Tile rows** instead, clear **Appearance → Show all games on one screen** in the configurator. Page arrows appear only when needed.
+The game grid centers the available cards against a moonlit backdrop, without headings or page text. By default, all visible games share one screen, up to 30, and the launcher picks the column count that gives the largest cards. For example, 17 games fit as 6 × 3 at 1920 × 1080. To use pages of **Tile columns** × **Tile rows** instead, clear **Appearance → All games on one screen** in the configurator. Page arrows appear only when needed.
 
 Each card has a square picture area and a one-line title, because children recognize games by their artwork. Use square artwork of at least 512 × 512 pixels. Cards rise into place one after another when a page opens, and have cream frames and a brief lift and glint on hover or keyboard focus. Executable icons, and artwork smaller than 160 pixels wide, stay at their native size in a round badge instead of stretching across a card. A configured wallpaper replaces the backdrop decorations.
 

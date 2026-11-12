@@ -19,7 +19,7 @@ namespace KidLauncher.Configurator
             var root = new Grid(); root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(290) }); root.ColumnDefinitions.Add(new ColumnDefinition());
             var p = Panel(); var a = config.Appearance;
             Heading(p, "Launcher appearance");
-            Check(p, "Show all games on one screen (no pages)", a, "AllGamesOnOneScreen", true);
+            Check(p, "All games on one screen", a, "AllGamesOnOneScreen", true);
             p.Children.Add(Note("The launcher picks the columns that give the largest cards, for up to " + TileGrid.MaxOnOneScreen + " games. Clear this to use pages of columns × rows instead."));
             Field(p, "Tile columns (1–12)", a, "Columns", true); Field(p, "Tile rows (1–12)", a, "Rows", true);
             var capacity = Note("With pages: tiles per page = columns × rows, up to 12. The default is 4 × 3."); p.Children.Add(capacity);
@@ -64,6 +64,8 @@ namespace KidLauncher.Configurator
                 width = Math.Max(20, Math.Min((1800 - gap * (columns - 1)) / columns, ((800 - gap * (rows - 1)) / rows) / ratio)); height = width * ratio;
             }
             else { width = Math.Max(20, (1800 - gap * (columns - 1)) / columns); height = Math.Max(20, (800 - gap * (rows - 1)) / rows); }
+            foreach (UIElement child in ((Panel)pageLabel.Parent).Children)
+                if (child != pageLabel) child.Visibility = pages > 1 ? Visibility.Visible : Visibility.Collapsed;
             pageLabel.Text = pages == 1 && a.AllGamesOnOneScreen ? "All " + visible.Count + " games on one screen" : "Page " + (previewPage + 1) + " of " + pages + " · " + capacity + " tiles per page";
             Color[] colors = { Color.FromRgb(31, 136, 166), Color.FromRgb(155, 86, 165), Color.FromRgb(214, 117, 45), Color.FromRgb(62, 143, 95) };
             var page = visible.Skip(previewPage * capacity).Take(capacity).ToList();
