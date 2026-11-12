@@ -77,7 +77,7 @@ namespace KidLauncher
             Owl.GotKeyboardFocus += (s, e) => WakeOwl(false);
             Fireflies.MouseEnter += (s, e) => StirFireflies(false);
             Fireflies.GotKeyboardFocus += (s, e) => StirFireflies(false);
-            LayoutUpdated += (s, e) => PlaceGroundToys();
+            LayoutUpdated += (s, e) => PlaceCornerToys();
             SystemParameters.StaticPropertyChanged += MotionSettingsChanged;
             SourceInitialized += (s, e) => { Topmost = true; };
             Loaded += async (s, e) =>
@@ -497,9 +497,12 @@ namespace KidLauncher
             // Retry soon while a game, overlay, or menu blocks the scene, so a surprise follows shortly after it returns.
             if (!IdleMagic || !CanPlayWithScenery) { surpriseTimer.Interval = TimeSpan.FromSeconds(3); return; }
             surpriseTimer.Interval = TimeSpan.FromMilliseconds(random.Next(5000, 9000));
-            // Cards can cover the owl or fireflies on full screens; only pick surprises the child can see.
-            var choices = new[] { 0, 1, 2, 3, 4 }.Where(choice => choice != lastSurprise &&
-                (choice != 1 || Owl.Visibility == Visibility.Visible) && (choice != 2 || Fireflies.Visibility == Visibility.Visible)).ToArray();
+            // Cards can cover any corner toy on full screens; only pick surprises the child can see.
+            // The shooting star needs no toy, so at least one choice always remains.
+            var visible = new[] { 0, 1, 2, 3, 4 }.Where(choice => (choice != 1 || Owl.Visibility == Visibility.Visible) &&
+                (choice != 2 || Fireflies.Visibility == Visibility.Visible) && (choice != 3 || WishingStars.Visibility == Visibility.Visible) &&
+                (choice != 4 || Moon.Visibility == Visibility.Visible)).ToArray();
+            var choices = visible.Length > 1 ? visible.Where(choice => choice != lastSurprise).ToArray() : visible;
             int next = choices[random.Next(choices.Length)];
             lastSurprise = next;
             switch (next)
@@ -563,14 +566,14 @@ namespace KidLauncher
             });
         }
 
-        private void PlaceGroundToys()
+        private void PlaceCornerToys()
         {
-            // The owl and fireflies sit near the bottom corners. Hide either one rather than let it
-            // peek out from under a card or page arrow on small screens or full pages.
+            // The sky and garden toys sit in the corners. Hide any toy rather than let it peek out
+            // from under a card or page arrow on small screens or full pages.
             if (!BackdropAccents.IsVisible || Tiles.ActualWidth <= 0) return;
             var blocked = new List<Rect> { Bounds(Tiles) };
             if (Navigation.IsVisible) { blocked.Add(Bounds(Previous)); blocked.Add(Bounds(Next)); }
-            foreach (var toy in new FrameworkElement[] { Owl, Fireflies })
+            foreach (var toy in new FrameworkElement[] { Moon, WishingStars, Owl, Fireflies })
             {
                 var area = Bounds(toy);
                 area.Inflate(12, 12);
