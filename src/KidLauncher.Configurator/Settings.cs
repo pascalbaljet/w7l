@@ -75,7 +75,7 @@ namespace KidLauncher.Configurator
                 var grid = new Grid(); var art = Artwork.Load(store, g);
                 if (art != null) grid.Children.Add(new Image { Source = art, Stretch = string.IsNullOrWhiteSpace(g.ArtworkPath) ? Stretch.Uniform : Stretch.UniformToFill, Margin = new Thickness(string.IsNullOrWhiteSpace(g.ArtworkPath) ? 35 : 0) });
                 else grid.Children.Add(new TextBlock { Text = "★", FontSize = Math.Min(height * .45, 130), Foreground = Brushes.White, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center });
-                if (a.ShowTitles) grid.Children.Add(new Border { Background = new SolidColorBrush(Color.FromArgb(210, 13, 27, 46)), VerticalAlignment = VerticalAlignment.Bottom, Padding = new Thickness(14), Child = new TextBlock { Text = g.Title, FontSize = Math.Max(18, Math.Min(34, height / 7)), Foreground = Brushes.White, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center } });
+                if (a.ShowTitles) grid.Children.Add(new Border { Background = new SolidColorBrush(Color.FromArgb(210, 13, 27, 46)), VerticalAlignment = VerticalAlignment.Bottom, Padding = new Thickness(10, 8, 10, 8), Child = new TextBlock { Text = g.Title, FontSize = Math.Max(12, Math.Min(22, width * 0.068)), Foreground = Brushes.White, TextTrimming = TextTrimming.CharacterEllipsis, TextAlignment = TextAlignment.Center } });
                 tile.Child = grid; Canvas.SetLeft(tile, 60 + (i % columns) * (width + gap)); Canvas.SetTop(tile, 145 + (i / columns) * (height + gap)); preview.Children.Add(tile);
             }
             if (pages > 1)
