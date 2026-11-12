@@ -270,7 +270,8 @@ namespace KidLauncher
         private Button CreateTile(Game game)
         {
             var color = (Color)ColorConverter.ConvertFromString(colors[Math.Abs(games.IndexOf(game) % colors.Length)]);
-            var cream = new SolidColorBrush(Color.FromRgb(255, 249, 237));
+            // Storybook paper: warm cream cards with a tan edge and brown titles.
+            var cream = new SolidColorBrush(Color.FromRgb(255, 246, 227));
             var layout = new Grid();
             layout.SizeChanged += (s, e) => layout.Clip = new RectangleGeometry(new Rect(layout.RenderSize),
                 Math.Max(0, config.Appearance.CornerRadius), Math.Max(0, config.Appearance.CornerRadius));
@@ -311,8 +312,8 @@ namespace KidLauncher
             if (config.Appearance.ShowTitles)
             {
                 // One short line under the picture; children recognise games by their artwork.
-                var title = new TextBlock { Text = game.Title, Foreground = new SolidColorBrush(Color.FromRgb(72, 55, 83)),
-                    FontSize = 18, FontWeight = FontWeights.SemiBold, TextWrapping = TextWrapping.NoWrap,
+                var title = new TextBlock { Text = game.Title, Foreground = new SolidColorBrush(Color.FromRgb(91, 58, 30)),
+                    FontSize = 18, FontWeight = FontWeights.Bold, TextWrapping = TextWrapping.NoWrap,
                     TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(10, 0, 10, 0),
                     TextAlignment = TextAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
                 titles.Add(title);
@@ -331,9 +332,9 @@ namespace KidLauncher
                 RenderTransform = new TranslateTransform(0, 7) });
             visual.Children.Add(new Border
             {
-                Background = cream, CornerRadius = radius, Child = layout, Padding = new Thickness(6),
-                CacheMode = new BitmapCache(), BorderThickness = new Thickness(1),
-                BorderBrush = new SolidColorBrush(Color.FromRgb(239, 220, 190))
+                Background = cream, CornerRadius = radius, Child = layout, Padding = new Thickness(7),
+                CacheMode = new BitmapCache(), BorderThickness = new Thickness(3),
+                BorderBrush = new SolidColorBrush(Color.FromRgb(231, 201, 143))
             });
             var ring = new Border { CornerRadius = radius, BorderBrush = cream, BorderThickness = new Thickness(3), Opacity = 0 };
             visual.Children.Add(ring);
