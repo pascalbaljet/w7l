@@ -272,7 +272,8 @@ namespace KidLauncher
             if (BackdropAccents.Visibility == Visibility.Visible)
             {
                 // DesiredSize includes each toy's corner margin and the constellation's upright rotation.
-                double strip = new FrameworkElement[] { Moon, WishingStars, Owl, Fireflies }.Max(toy => toy.DesiredSize.Width) + 12;
+                // PlaceCornerToys pads toys by 12 and treats touching edges as overlap, so leave a little more.
+                double strip = new FrameworkElement[] { Moon, WishingStars, Owl, Fireflies }.Max(toy => toy.DesiredSize.Width) + 16;
                 double narrower = Backdrop.ActualWidth - 2 * strip;
                 if (narrower > 0 && narrower < PlayRoom.ActualWidth)
                 {
