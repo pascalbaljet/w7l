@@ -265,15 +265,25 @@ namespace KidLauncher
             // Leave the corner toys a strip on each side of the cards, so a full screen keeps its moon,
             // stars, owl and fireflies. When that would shrink the cards by more than an eighth, the
             // cards keep their size and PlaceCornerToys hides the toys they cover instead.
+            bool strips = false;
             if (BackdropAccents.Visibility == Visibility.Visible)
             {
-                // DesiredSize includes each toy's corner margin and the constellation's upright rotation.
-                // PlaceCornerToys pads toys by 12 and treats touching edges as overlap, so leave a little more.
-                double strip = new FrameworkElement[] { Moon, WishingStars, Owl, Fireflies }.Max(toy => toy.DesiredSize.Width) + 16;
+                // DesiredSize includes each corner toy's margin. In a strip the constellation stands upright
+                // at the left edge, as wide as it is tall when flat. PlaceCornerToys pads toys by 12 and
+                // treats touching edges as overlap, so leave a little more.
+                double strip = Math.Max(UprightStarsMargin.Left + WishingStars.Height,
+                    new FrameworkElement[] { Moon, Owl, Fireflies }.Max(toy => toy.DesiredSize.Width)) + 16;
                 // Keep the same columns and rows: the strips may shrink the grid, never reshape it into ragged rows.
                 double narrower = Backdrop.ActualWidth - 2 * strip;
                 double smaller = Math.Min(340, Math.Min(narrower / Tiles.Columns, availableHeight / Tiles.Rows / ratio));
-                if (narrower > 0 && smaller >= cell * 0.88) cell = Math.Min(cell, smaller);
+                strips = narrower > 0 && smaller >= cell * 0.88 && smaller < cell;
+                if (strips) cell = smaller;
+            }
+            // Flat, the constellation sits further in and lower, clear of a single row of cards on small screens.
+            if (strips != WishingStars.LayoutTransform is RotateTransform)
+            {
+                WishingStars.LayoutTransform = strips ? new RotateTransform(90) : Transform.Identity;
+                WishingStars.Margin = strips ? UprightStarsMargin : new Thickness(140, 65, 0, 0);
             }
             Tiles.Width = cell * Tiles.Columns;
             Tiles.Height = cell * ratio * Tiles.Rows;
@@ -606,6 +616,8 @@ namespace KidLauncher
                 FillBehavior = FillBehavior.Stop, EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut }
             });
         }
+
+        private static readonly Thickness UprightStarsMargin = new Thickness(28, 24, 0, 0);
 
         private void PlaceCornerToys()
         {
