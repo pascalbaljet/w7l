@@ -73,6 +73,9 @@ namespace KidLauncher.Core
     {
         public int ExitVirtualKey { get; set; } = 0x75;
         public bool BlockWindowsKey { get; set; } = true;
+        // The exit key force-closes the game at once instead of asking it to close and waiting.
+        // Games with automatic force exit turned off still wait for the game to close itself.
+        public bool InstantExit { get; set; } = true;
         public string PinSalt { get; set; } = "";
         public string PinHash { get; set; } = "";
     }

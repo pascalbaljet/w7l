@@ -21,7 +21,7 @@ A power failure, driver failure, monitor replacement, PID reuse, or interruption
 4. Check whether automatic forced exit is enabled for this game.
 5. Test a different unreserved key, such as Scroll Lock, through the configurator.
 
-One press requests graceful closure. With automatic force-exit enabled, tracked processes that remain after the configured timeout are terminated automatically. With force-exit disabled, an unresponsive game must be closed manually. Unsaved game progress can be lost after forced termination.
+By default, one press force-closes the tracked processes at once (**Controls → Close games instantly with the exit key**). Games with force-exit disabled, and all games when instant exit is off, get a graceful close request first. With automatic force-exit enabled, tracked processes that remain after the configured timeout are terminated automatically. With force-exit disabled, an unresponsive game must be closed manually. Unsaved game progress can be lost after forced termination.
 
 The low-level keyboard hook stays active even when RegisterHotKey succeeds. Key-state polling provides another detection path. The log includes `source=WH_KEYBOARD_LL` or `source=GetAsyncKeyState polling` when an exit key reaches the session. These mechanisms cannot guarantee input from a secure desktop or a higher-integrity game. If no input source receives the key, close the game through Windows and retain the log. F12 is reserved for debugging and is not a recommended exit key.
 

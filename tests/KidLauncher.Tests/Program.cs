@@ -18,7 +18,7 @@ namespace KidLauncher.Tests
         {
             if (args.Contains("--process-fixture")) { Thread.Sleep(30000); return 0; }
             var tests = new Action[] { RuntimeContract, ConfigurationRoundTrip, Validation, PinHash, ForcedExitAndChildHandoff,
-                GracefulExit, LaunchFailureRestores, MountFailurePreventsLaunch, ExistingDiscIsReplaced,
+                GracefulExit, InstantExitSkipsGracePeriod, LaunchFailureRestores, MountFailurePreventsLaunch, ExistingDiscIsReplaced,
                 DiscCanRemainMounted, RecoveryWaitsForGame, FailedRestorationIsRetried, ConcurrentSessionsRejected,
                 DisabledForceExitKeepsResources, LegacyDiscRestorationSettingIsIgnored, WindowsProcessIdentity,
                 FutureSchemaCannotBeOverwritten, DiscRecoveryIsIdempotent, RecoveryFindsUnrecordedChild,
@@ -245,11 +245,28 @@ namespace KidLauncher.Tests
         {
             using (var f = new Fixture())
             {
-                f.Processes.CloseWorks = true;
+                f.Processes.CloseWorks = true; f.Config.Controls.InstantExit = false;
                 var task = f.Session.RunAsync(f.Game, CancellationToken.None);
                 Complete(f.Session.RequestExitAsync()); Complete(task);
                 Assert(f.Processes.Closed && !f.Processes.Terminated, "Graceful exit unnecessarily forced.");
             }
+        }
+        private static void InstantExitSkipsGracePeriod()
+        {
+            foreach (bool instant in new[] { true, false })
+                using (var f = new Fixture())
+                {
+                    // A game that ignores close requests, with a grace period far longer than the wait below.
+                    f.Game.GracefulExitTimeoutMs = 5000; f.Config.Controls.InstantExit = instant;
+                    var task = f.Session.RunAsync(f.Game, CancellationToken.None);
+                    var exit = f.Session.RequestExitAsync();
+                    bool finished = exit.Wait(1500);
+                    if (instant) Assert(finished && f.Processes.Terminated && !f.Processes.Closed, "Instant exit waited or sent a close request.");
+                    else Assert(!finished && f.Processes.Closed && !f.Processes.Terminated, "Disabled instant exit skipped the graceful timeout.");
+                    f.Processes.Alive = false;
+                    Complete(exit); Complete(task);
+                    Assert(f.Display.Current.Width == 1920, "Display not restored after exit.");
+                }
         }
         private static void LaunchFailureRestores()
         {
@@ -507,6 +524,7 @@ namespace KidLauncher.Tests
             public FakeDisc Disc = new FakeDisc();
             public Game Game;
             public GameSession Session;
+            public LauncherConfiguration Config = new LauncherConfiguration();
             public string RecoveryPath => Path.Combine(Store.DataDirectory, "display-session.json");
             public Fixture()
             {
@@ -514,7 +532,7 @@ namespace KidLauncher.Tests
                 Game = new Game { Title = "Asymmetric test", ExecutablePath = typeof(Program).Assembly.Location,
                     Resolution = new DisplayMode { Width = 800, Height = 600, BitsPerPixel = 16, Frequency = 75 },
                     StartupGraceMs = 0, GracefulExitTimeoutMs = 0 };
-                Session = new GameSession(Store, new LauncherConfiguration(), Display, Processes, Disc, new QuietLog());
+                Session = new GameSession(Store, Config, Display, Processes, Disc, new QuietLog());
             }
             public void EnableDisc()
             {

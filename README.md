@@ -22,6 +22,8 @@ Hover over the moon to make it nod. Click it to send a shooting star across the 
 
 The launcher blocks both Windows keys, in the launcher itself and during games, so a child cannot open the Start menu or minimize a game. The keys work again while the grown-up menu or the configurator is open, and after the launcher exits. Ctrl+Alt+Del always works. To allow the Windows keys, clear **Controls → Block the Windows keys while the launcher runs**. Elevated games need the launcher at the same privilege level, as with the exit key.
 
+One F6 press closes the game instantly: the launcher force-closes the game's processes without asking the game to quit first, so no "Quit?" question appears. Unsaved game progress is lost. To let games close themselves first, clear **Controls → Close games instantly with the exit key**. Each game then uses the graceful close timeout in **Games → Process tracking and exit**.
+
 The cards appear in a new random order each time the launcher starts. The order stays the same until the next start, so a game is still in its place after F6. To use the order from the Games tab, clear **Appearance → Shuffle the games each time the launcher starts**.
 
 Press **Ctrl+Alt+S**, then choose **Exit launcher to Windows** to close it. If a PIN is configured, enter it first. Without a PIN, the adult menu opens directly.
@@ -42,7 +44,7 @@ The solution also compiles against framework reference assemblies in a Linux orb
 
 Use an unlocked Windows desktop with no other KidLauncher instance running. Install `ffmpeg` on `PATH`. After `scripts/build.ps1`, run `scripts/e2e.ps1` from PowerShell. Do not use the mouse or keyboard during the run.
 
-The positive journey installs the actual Setup executable into a disposable directory. It configures games, language, and a PIN through the GUI, then reopens the configurator to check persistence. Real mouse and keyboard input checks hover zoom and the native pointer, launches a test game, and requests one-press F6 shutdown. The tests cover graceful and forced shutdown, an unrelated same-name process, a missing executable, PIN-free exit, and PIN rejection and acceptance. A separate portable negative control configures F7 and must fail specifically when F6 cannot close the game.
+The positive journey installs the actual Setup executable into a disposable directory. It configures games, language, and a PIN through the GUI, then reopens the configurator to check persistence. Real mouse and keyboard input checks hover zoom and the native pointer, launches a test game, and requests one-press F6 shutdown. The tests cover instant shutdown in the launcher, graceful shutdown in the configurator test, an unrelated same-name process, a missing executable, PIN-free exit, and PIN rejection and acceptance. A separate portable negative control configures F7 and must fail specifically when F6 cannot close the game.
 
 `scripts/installer-test.ps1` checks fresh installation and an update over existing configuration, recovery state, logs, artwork, disc images, backups, and unrelated files. It compares their SHA-256 hashes and checks that an old application binary gets replaced. It also exercises the real Setup window. Run it on an elevated, unlocked Windows desktop. CI retains screenshots and a recording in **Installer-evidence**.
 

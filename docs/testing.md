@@ -27,7 +27,8 @@ Start with a disposable game or a game with saved progress backed up. Keep a key
 - [ ] Selecting 640×480, closing the resolution dropdown, and scrolling over it leaves 640×480 selected and scrolls the editor instead.
 - [ ] A game without a disc launches at its configured supported resolution.
 - [ ] One short F6 press returns from a cooperative game and restores the exact prior display mode.
-- [ ] One short F6 press closes an unresponsive tracked game after the force-exit timeout.
+- [ ] With instant exit on (the default), one short F6 press closes an unresponsive tracked game at once, without a quit question.
+- [ ] With instant exit off, one short F6 press closes an unresponsive tracked game after the force-exit timeout.
 - [ ] Disabling force-exit leaves an unresponsive game alive and does not unmount its disc or clear recovery state.
 - [ ] A bootstrap process can exit while the child game remains active.
 - [ ] An unrelated process with the same name is not closed or killed.

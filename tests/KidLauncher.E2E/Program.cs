@@ -199,7 +199,13 @@ namespace KidLauncher.E2E
             Until(() => Value(settings, "Title") == Cooperative && Value(settings, "ExecutablePath") == fixture,
                 "saved settings survive closing and reopening the configurator");
             Log("PASS: configuration and PIN created through the GUI, saved, and reloaded.");
-            if (!negativeControl) TestInConfigurator(configurator, settings, normalEvents);
+            if (!negativeControl)
+            {
+                // The configurator test game covers the graceful path; the launcher below keeps the instant default.
+                SetInstantExit(settings, false);
+                TestInConfigurator(configurator, settings, normalEvents);
+                SetInstantExit(settings, true);
+            }
             Close(configurator, settings);
 
             var unrelated = Start("E2EGame.exe", "--test-game " + Quote(Path.Combine(output, "unrelated.events")));
@@ -528,8 +534,12 @@ namespace KidLauncher.E2E
             Until(() => File.Exists(Journal), "real game session persists recovery state");
             Desktop.Capture(Path.Combine(output, stubborn ? "04-stubborn-game.png" : "03-cooperative-game.png"));
             Check(!game.HasExited && !unrelated.HasExited, "game and unrelated control are alive before F6");
+            var exitTimer = Stopwatch.StartNew();
             Desktop.Key(0x75); // One physical F6 down/up, not WM_HOTKEY or a direct session call.
             Until(() => game.HasExited, title + " exits after a single F6", 20000);
+            Log(title + " exited " + exitTimer.ElapsedMilliseconds + " ms after F6");
+            // The old graceful default waited 3000 ms before force-closing a game that ignores close.
+            Check(exitTimer.ElapsedMilliseconds < 2000, "instant exit closes " + title + " without a grace period");
             Ready(room, launcher);
             Until(() => !File.Exists(Journal), "recovery finishes before reusing the launcher");
             string[] lines = File.ReadAllLines(events);
@@ -538,11 +548,20 @@ namespace KidLauncher.E2E
                 Check(lines.Any(line => line.StartsWith("DISPLAY " + requested["Width"] + "x" + requested["Height"] + " ", StringComparison.Ordinal)),
                     "installed launcher starts the game at its configured resolution");
             Check(lines.Count(l => l.StartsWith("START ")) == 1, "repeated activation starts exactly one game");
-            Check(lines.Any(l => l.StartsWith("CLOSE_REQUEST ")), "F6 reaches the real game's close handler");
-            Check(lines.Any(l => l.StartsWith("CLOSE_ACCEPTED ")) != stubborn,
-                stubborn ? "force exit kills a game that refuses graceful close" : "cooperative game accepts graceful close");
+            Check(!lines.Any(l => l.StartsWith("CLOSE_REQUEST ")), "instant exit never asks " + title + " to close, so no quit question appears");
             Check(!unrelated.HasExited && Desktop.DisplayMode() == mode, "shutdown preserves the unrelated process and original display mode");
-            Log("PASS: " + (stubborn ? "forced" : "graceful") + " one-press F6 shutdown and foreground launcher return.");
+            Log("PASS: instant one-press F6 shutdown of the " + (stubborn ? "close-refusing" : "cooperative") + " game and foreground launcher return.");
+        }
+
+        static void SetInstantExit(AutomationElement settings, bool on)
+        {
+            ((SelectionItemPattern)Find(settings, ControlType.TabItem, "Controls").GetCurrentPattern(SelectionItemPattern.Pattern)).Select();
+            var instant = (TogglePattern)Find(settings, ControlType.CheckBox, "Close games instantly with the exit key").GetCurrentPattern(TogglePattern.Pattern);
+            if (on) Check(instant.Current.ToggleState == ToggleState.Off, "instant exit was off for the configurator test");
+            else Check(instant.Current.ToggleState == ToggleState.On, "games close instantly by default");
+            instant.Toggle(); Invoke(settings, "Save configuration");
+            Until(() => (bool)((Dictionary<string, object>)Configuration()["Controls"])["InstantExit"] == on, "GUI saves instant exit " + (on ? "on" : "off"));
+            ((SelectionItemPattern)Find(settings, ControlType.TabItem, "Games").GetCurrentPattern(SelectionItemPattern.Pattern)).Select();
         }
 
         static void Ready(AutomationElement room, Process launcher)

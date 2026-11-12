@@ -140,8 +140,10 @@ namespace KidLauncher.Core
                 session.ProcessStartPending = false;
                 recovery.Save(session);
                 Report("Process started: " + initial.Name + " PID " + initial.Id);
-                Report("Exit settings: key=" + configuration.Controls.ExitVirtualKey + "; automatic force exit=" + game.AutomaticForceExit +
-                    "; force timeout=" + game.GracefulExitTimeoutMs + "ms; requested elevation=" + game.RunAsAdministrator);
+                bool instantExit = configuration.Controls.InstantExit && game.AutomaticForceExit;
+                Report("Exit settings: key=" + configuration.Controls.ExitVirtualKey + "; instant exit=" + instantExit +
+                    "; automatic force exit=" + game.AutomaticForceExit + "; force timeout=" + game.GracefulExitTimeoutMs +
+                    "ms; requested elevation=" + game.RunAsAdministrator);
                 var lastDisplay = display.Capture();
                 Report("Display after process start: " + lastDisplay);
                 var startup = Stopwatch.StartNew();
@@ -193,13 +195,19 @@ namespace KidLauncher.Core
                     }
                     if (exitRequested || cancellationToken.IsCancellationRequested)
                     {
-                        if (exitTimer == null) { exitTimer = Stopwatch.StartNew(); Report("Exit requested; attempting graceful shutdown."); }
-                        foreach (var process in alive)
+                        if (exitTimer == null)
                         {
-                            var key = process.Id + ":" + process.StartTimeUtcTicks;
-                            if (closeRequested.Add(key)) processes.RequestClose(process);
+                            exitTimer = Stopwatch.StartNew();
+                            Report(instantExit ? "Exit requested; closing the game instantly." : "Exit requested; attempting graceful shutdown.");
                         }
-                        if (game.AutomaticForceExit && exitTimer.ElapsedMilliseconds >= game.GracefulExitTimeoutMs)
+                        // A close request makes many games ask "Quit?" first, so instant exit skips it.
+                        if (!instantExit)
+                            foreach (var process in alive)
+                            {
+                                var key = process.Id + ":" + process.StartTimeUtcTicks;
+                                if (closeRequested.Add(key)) processes.RequestClose(process);
+                            }
+                        if (instantExit || (game.AutomaticForceExit && exitTimer.ElapsedMilliseconds >= game.GracefulExitTimeoutMs))
                         {
                             foreach (var process in alive)
                             {

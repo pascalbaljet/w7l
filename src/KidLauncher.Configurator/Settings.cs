@@ -116,7 +116,8 @@ namespace KidLauncher.Configurator
             Check(p, "Block the Windows keys while the launcher runs", config.Controls, "BlockWindowsKey");
             p.Children.Add(Note("Stops a child from opening the Start menu or minimizing a game, in the launcher and during games. The keys work again while the grown-up menu or the configurator is open, and after Exit launcher to Windows. Ctrl+Alt+Del always works."));
             Heading(p, "Graceful / forced exit");
-            p.Children.Add(Note("Exit timeouts and automatic force termination are per game, in Games → Process tracking and exit. A single press requests close, waits for that timeout, then force-closes tracked processes if enabled."));
+            Check(p, "Close games instantly with the exit key", config.Controls, "InstantExit");
+            p.Children.Add(Note("When on, one press force-closes the tracked game processes at once, without a quit question. Unsaved game progress is lost. Games with automatic force-close turned off still wait until they close themselves. When off, each game uses its own timeout in Games → Process tracking and exit: a press requests close, waits for that timeout, then force-closes tracked processes if enabled."));
             Heading(p, "Adult access PIN");
             p.Children.Add(Note("The launcher has a hidden adult entry route (Ctrl+Alt+S). Set a PIN here. A salted hash is stored; the PIN is never stored in plaintext."));
             p.Children.Add(new TextBlock { Text = "Current PIN (required when one is already set)" }); var old = new PasswordBox { MaxWidth = 260, HorizontalAlignment = HorizontalAlignment.Left, MinWidth = 220, Padding = new Thickness(6) }; p.Children.Add(old);
