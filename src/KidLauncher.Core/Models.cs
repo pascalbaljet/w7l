@@ -43,6 +43,29 @@ namespace KidLauncher.Core
         public bool ShowTitles { get; set; } = true;
         public int CursorHideSeconds { get; set; } = 5;
         public bool IdleAnimations { get; set; } = true;
+        public bool AllGamesOnOneScreen { get; set; } = true;
+    }
+
+    public static class TileGrid
+    {
+        // Beyond this many games, one screen would make cards too small; pages of this size follow.
+        public const int MaxOnOneScreen = 30;
+
+        // Card height divided by width: a square picture, plus a one-line title band when titles show.
+        public static double CardRatio(bool showTitles) { return showTitles ? 1.18 : 1.0; }
+
+        // The column count that gives the largest cards when count cards of the given ratio fill width × height.
+        public static int FitColumns(int count, double width, double height, double ratio)
+        {
+            int best = 1; double bestSize = 0;
+            for (int columns = 1; columns <= Math.Max(1, count); columns++)
+            {
+                int rows = (count + columns - 1) / columns;
+                double size = Math.Min(width / columns, height / rows / ratio);
+                if (size > bestSize + 0.5) { best = columns; bestSize = size; }
+            }
+            return best;
+        }
     }
 
     public sealed class ControlSettings

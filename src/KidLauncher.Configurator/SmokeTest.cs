@@ -82,9 +82,11 @@ namespace KidLauncher.Configurator
                 if (indices[i] == 1)
                 {
                     Assert(preview.Width == 1920 && preview.Height == 1080 && preview.Children.Count > 10, "Appearance: scaled native 1920×1080 tile preview is populated.", report);
+                    Assert(pageLabel.Text.StartsWith("All ") && pageLabel.Text.Contains("one screen"), "Appearance: all sample games preview on one screen by default.", report);
+                    config.Appearance.AllGamesOnOneScreen = false; RefreshPreview();
                     Assert(pageLabel.Text.Contains("of 2"), "Appearance: pagination includes a second page.", report);
                     previewPage = 1; RefreshPreview(); Assert(pageLabel.Text.Contains("Page 2"), "Appearance: second-page navigation works.", report);
-                    previewPage = 0; RefreshPreview(); UpdateLayout();
+                    previewPage = 0; config.Appearance.AllGamesOnOneScreen = true; RefreshPreview(); UpdateLayout();
                 }
                 if (indices[i] == 2) Assert(nodes.OfType<PasswordBox>().Count() == 3, "Controls: current/new/confirmation PIN fields exist; no authentication performed.", report);
                 if (indices[i] == 3) Assert(nodes.OfType<TextBox>().Any(), "Virtual drives: editable VCD utility path exists; no drive operation performed.", report);

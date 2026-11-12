@@ -146,7 +146,13 @@ namespace KidLauncher.Tests
                 Assert(f.Store.Validate(c).Count > 0, "Future schema silently accepted.");
                 c.SchemaVersion = 1; c.Appearance.Columns = 5;
                 Assert(f.Store.Validate(c).Count > 0, "More than 12 tiles accepted.");
-                c.Appearance.Columns = 4; f.Game.ExecutablePath = "missing.exe";
+                c.Appearance.Columns = 4;
+                // 17 games on a 1920 × 1080 play area: 6 × 3 gives 281px cells; 5 × 4 only 211px.
+                Assert(TileGrid.FitColumns(17, 1824, 996, TileGrid.CardRatio(true)) == 6, "17 games do not fit as 6 × 3.");
+                Assert(TileGrid.FitColumns(3, 1824, 996, TileGrid.CardRatio(true)) == 3, "Three games do not share one row.");
+                Assert(new JavaScriptSerializer().Deserialize<AppearanceSettings>("{\"Columns\":4,\"Rows\":3}").AllGamesOnOneScreen,
+                    "Configurations saved before the one-screen option do not default to one screen.");
+                f.Game.ExecutablePath = "missing.exe";
                 Assert(f.Store.Validate(c, true).Any(e => e.Contains("executable")), "Missing executable accepted.");
                 f.Game.Disc.Enabled = true; f.Game.Disc.ExpectedDriveLetter = "V:"; f.Game.Disc.ImagePath = "disc.iso";
                 f.Game.Disc.ReadinessFile = "..\\Windows\\file";

@@ -189,11 +189,7 @@ namespace KidLauncher.Configurator
             string relative = Path.Combine("Assets", Guid.NewGuid().ToString("N") + ".png");
             dialog.Save(Path.Combine(store.ApplicationDirectory, relative)); game.ArtworkPath = relative; BuildEditor(); RefreshPreview();
         }
-        double TileAspect()
-        {
-            int columns = Math.Max(1, Math.Min(12, config.Appearance.Columns)), rows = Math.Max(1, Math.Min(12, config.Appearance.Rows));
-            double gap = Math.Max(0, Math.Min(100, config.Appearance.Spacing));
-            return Math.Max(20, (1800 - gap * (columns - 1)) / columns) / Math.Max(20, (800 - gap * (rows - 1)) / rows);
-        }
+        // The launcher's picture area is square in every layout, so artwork is cropped square.
+        double TileAspect() { return 1.0; }
     }
 }

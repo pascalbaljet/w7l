@@ -45,7 +45,7 @@ namespace KidLauncher
                 if (smoke)
                 {
                     var sample = new LauncherConfiguration();
-                    var titles = new[] { "Putt-Putt Saves the Zoo", "Freddi Fish", "Pajama Sam", "Spy Fox", "Fatty Bear", "Let's Explore", "The Backyard", "Jungle Adventure", "Space Adventure", "Ocean Explorer", "Big Thinkers", "Play and Learn", "One More Adventure" };
+                    var titles = new[] { "Putt-Putt Saves the Zoo", "Freddi Fish", "Pajama Sam", "Spy Fox", "Fatty Bear", "Let's Explore", "The Backyard", "Jungle Adventure", "Space Adventure", "Ocean Explorer", "Big Thinkers", "Play and Learn", "One More Adventure", "Winnie de Poeh en de Honingboom", "Mickey Stad op Stelten", "Robbie Konijn Peuter", "Max en de Piraten" };
                     foreach (var title in titles) sample.Games.Add(new Game { Title = title, SortOrder = sample.Games.Count });
                     store.Save(sample);
                 }

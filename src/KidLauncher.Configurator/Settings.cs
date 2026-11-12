@@ -19,8 +19,10 @@ namespace KidLauncher.Configurator
             var root = new Grid(); root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(290) }); root.ColumnDefinitions.Add(new ColumnDefinition());
             var p = Panel(); var a = config.Appearance;
             Heading(p, "Launcher appearance");
+            Check(p, "Show all games on one screen (no pages)", a, "AllGamesOnOneScreen", true);
+            p.Children.Add(Note("The launcher picks the columns that give the largest cards, for up to " + TileGrid.MaxOnOneScreen + " games. Clear this to use pages of columns × rows instead."));
             Field(p, "Tile columns (1–12)", a, "Columns", true); Field(p, "Tile rows (1–12)", a, "Rows", true);
-            var capacity = Note("Tiles per page = columns × rows, up to 12. The default is 4 × 3. Use both fields to change capacity."); p.Children.Add(capacity);
+            var capacity = Note("With pages: tiles per page = columns × rows, up to 12. The default is 4 × 3."); p.Children.Add(capacity);
             Field(p, "Spacing (pixels at 1920 × 1080)", a, "Spacing", true);
             Field(p, "Background color (#RRGGBB)", a, "BackgroundColor", true);
             var background = Field(p, "Background image (optional)", a, "BackgroundImage", true);
@@ -49,11 +51,20 @@ namespace KidLauncher.Configurator
             if (bg != null) preview.Children.Add(new Image { Source = bg, Width = 1920, Height = 1080, Stretch = Stretch.UniformToFill });
             var heading = new TextBlock { Text = config.Language == "en" ? "Let's play!" : "Spelen maar!", Foreground = Brushes.White, FontSize = 62, FontWeight = FontWeights.Bold };
             Canvas.SetLeft(heading, 60); Canvas.SetTop(heading, 28); preview.Children.Add(heading);
-            int columns = Math.Max(1, Math.Min(12, a.Columns)), rows = Math.Max(1, Math.Min(12, a.Rows)), capacity = columns * rows;
-            double gap = Math.Max(0, Math.Min(100, a.Spacing)), width = Math.Max(20, (1800 - gap * (columns - 1)) / columns), height = Math.Max(20, (800 - gap * (rows - 1)) / rows);
+            int columns = Math.Max(1, Math.Min(12, a.Columns)), rows = Math.Max(1, Math.Min(12, a.Rows));
+            int capacity = a.AllGamesOnOneScreen ? TileGrid.MaxOnOneScreen : columns * rows;
             var visible = config.Games.Where(g => g.Visible).ToList(); int pages = Math.Max(1, (visible.Count + capacity - 1) / capacity);
             previewPage = Math.Max(0, Math.Min(pages - 1, previewPage));
-            pageLabel.Text = "Page " + (previewPage + 1) + " of " + pages + " · " + capacity + " tiles per page";
+            double gap = Math.Max(0, Math.Min(100, a.Spacing)), width, height;
+            int shown = Math.Min(capacity, visible.Count - previewPage * capacity);
+            if (a.AllGamesOnOneScreen && shown > 0)
+            {
+                double ratio = TileGrid.CardRatio(a.ShowTitles);
+                columns = TileGrid.FitColumns(shown, 1800, 800, ratio); rows = (shown + columns - 1) / columns;
+                width = Math.Max(20, Math.Min((1800 - gap * (columns - 1)) / columns, ((800 - gap * (rows - 1)) / rows) / ratio)); height = width * ratio;
+            }
+            else { width = Math.Max(20, (1800 - gap * (columns - 1)) / columns); height = Math.Max(20, (800 - gap * (rows - 1)) / rows); }
+            pageLabel.Text = pages == 1 && a.AllGamesOnOneScreen ? "All " + visible.Count + " games on one screen" : "Page " + (previewPage + 1) + " of " + pages + " · " + capacity + " tiles per page";
             Color[] colors = { Color.FromRgb(31, 136, 166), Color.FromRgb(155, 86, 165), Color.FromRgb(214, 117, 45), Color.FromRgb(62, 143, 95) };
             var page = visible.Skip(previewPage * capacity).Take(capacity).ToList();
             for (int i = 0; i < page.Count; i++)
@@ -65,7 +76,10 @@ namespace KidLauncher.Configurator
                 if (a.ShowTitles) grid.Children.Add(new Border { Background = new SolidColorBrush(Color.FromArgb(210, 13, 27, 46)), VerticalAlignment = VerticalAlignment.Bottom, Padding = new Thickness(14), Child = new TextBlock { Text = g.Title, FontSize = Math.Max(18, Math.Min(34, height / 7)), Foreground = Brushes.White, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center } });
                 tile.Child = grid; Canvas.SetLeft(tile, 60 + (i % columns) * (width + gap)); Canvas.SetTop(tile, 145 + (i / columns) * (height + gap)); preview.Children.Add(tile);
             }
+            if (pages > 1)
+            {
             var pagesText = new TextBlock { Text = "◀     " + (previewPage + 1) + " / " + pages + "     ▶", Foreground = Brushes.White, FontSize = 42 }; Canvas.SetLeft(pagesText, 800); Canvas.SetTop(pagesText, 985); preview.Children.Add(pagesText);
+            }
         }
 
         UIElement BuildControls()

@@ -42,6 +42,7 @@ namespace KidLauncher
         private readonly DispatcherTimer surpriseTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
         private readonly Random random = new Random();
         private int lastSurprise = -1;
+        private readonly List<TextBlock> titles = new List<TextBlock>();
         private readonly bool smokeTest;
         private DateTime lastMove = DateTime.UtcNow;
         private DateTime lastWheel = DateTime.MinValue;
@@ -199,7 +200,8 @@ namespace KidLauncher
             ApplyLanguage();
             var a = config.Appearance;
             int columns = Math.Max(1, Math.Min(12, a.Columns));
-            pageSize = columns * Math.Max(1, Math.Min(12 / columns, a.Rows));
+            // On one screen, SizeTiles picks the columns that give the largest cards.
+            pageSize = a.AllGamesOnOneScreen ? TileGrid.MaxOnOneScreen : columns * Math.Max(1, Math.Min(12 / columns, a.Rows));
             games = config.Games.Where(g => g.Visible).OrderBy(g => g.SortOrder).ThenBy(g => g.Title).ToList();
             var count = Math.Max(1, (games.Count + pageSize - 1) / pageSize);
             page = Math.Max(0, Math.Min(page, count - 1));
@@ -210,6 +212,7 @@ namespace KidLauncher
             // A configured wallpaper is always left untouched, even if it could not load.
             BackdropAccents.Visibility = string.IsNullOrWhiteSpace(a.BackgroundImage) ? Visibility.Visible : Visibility.Collapsed;
             Tiles.Children.Clear();
+            titles.Clear();
             foreach (var game in games.Skip(page * pageSize).Take(pageSize)) Tiles.Children.Add(CreateTile(game));
             Tiles.Columns = Math.Min(columns, Math.Max(1, Tiles.Children.Count));
             Tiles.Rows = Math.Max(1, (Tiles.Children.Count + Tiles.Columns - 1) / Tiles.Columns);
@@ -229,11 +232,19 @@ namespace KidLauncher
 
         private void SizeTiles()
         {
-            if (PlayRoom.ActualWidth <= 0 || PlayRoom.ActualHeight <= 0) return;
+            if (PlayRoom.ActualWidth <= 0 || PlayRoom.ActualHeight <= 0 || config == null) return;
             double availableHeight = Math.Max(1, PlayRoom.ActualHeight - (Navigation.Visibility == Visibility.Visible ? 88 : 0));
-            double cell = Math.Min(340, Math.Min(PlayRoom.ActualWidth / Tiles.Columns, availableHeight / Tiles.Rows / 1.15));
+            double ratio = TileGrid.CardRatio(config.Appearance.ShowTitles);
+            int cards = Tiles.Children.OfType<Button>().Count();
+            if (config.Appearance.AllGamesOnOneScreen && cards > 0)
+            {
+                Tiles.Columns = TileGrid.FitColumns(cards, PlayRoom.ActualWidth, availableHeight, ratio);
+                Tiles.Rows = (cards + Tiles.Columns - 1) / Tiles.Columns;
+            }
+            double cell = Math.Min(340, Math.Min(PlayRoom.ActualWidth / Tiles.Columns, availableHeight / Tiles.Rows / ratio));
             Tiles.Width = cell * Tiles.Columns;
-            Tiles.Height = cell * 1.15 * Tiles.Rows;
+            Tiles.Height = cell * ratio * Tiles.Rows;
+            foreach (var title in titles) title.FontSize = Math.Max(12, Math.Min(22, cell * 0.068));
         }
 
         private Button CreateTile(Game game)
@@ -243,21 +254,26 @@ namespace KidLauncher
             var layout = new Grid();
             layout.SizeChanged += (s, e) => layout.Clip = new RectangleGeometry(new Rect(layout.RenderSize),
                 Math.Max(0, config.Appearance.CornerRadius), Math.Max(0, config.Appearance.CornerRadius));
+            // The picture row stays close to square, so square artwork fills it with little cropping.
             layout.RowDefinitions.Add(new RowDefinition());
-            if (config.Appearance.ShowTitles) layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            // Cover art can fill its frame. A 32px executable icon cannot.
+            if (config.Appearance.ShowTitles) layout.RowDefinitions.Add(new RowDefinition { Height = new GridLength(0.2, GridUnitType.Star) });
+            // Cover art can fill its frame. A 32px executable icon cannot, even when the
+            // configurator saved one as the game's artwork; it goes in the badge instead.
             var art = LoadArtwork(game.ArtworkPath, null);
-            if (art != null)
+            if (art is BitmapSource picture && picture.PixelWidth >= 160)
                 layout.Children.Add(new Image { Source = art, Stretch = Stretch.UniformToFill, ClipToBounds = true });
             else
             {
                 var cover = new Grid { Background = new LinearGradientBrush(color, Color.FromRgb(245, 239, 227), 55) };
-                cover.Children.Add(new System.Windows.Shapes.Ellipse
+                // Small cards shrink the medallion instead of cropping it.
+                var medallion = new Grid { Width = 170, Height = 170 };
+                cover.Children.Add(new Viewbox { Child = medallion, StretchDirection = StretchDirection.DownOnly, Margin = new Thickness(8) });
+                medallion.Children.Add(new System.Windows.Shapes.Ellipse
                 {
                     Width = 170, Height = 170, Stroke = cream, StrokeThickness = 1, Opacity = 0.5,
                     HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center
                 });
-                art = LoadArtwork(null, game.ExecutablePath);
+                art = art ?? LoadArtwork(null, game.ExecutablePath);
                 var badge = new Border { Width = 112, Height = 112, CornerRadius = new CornerRadius(56), Background = cream,
                     HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
                 if (art != null)
@@ -269,16 +285,18 @@ namespace KidLauncher
                         Fill = new SolidColorBrush(Color.FromRgb(167, 133, 100)), Width = 48, Height = 48,
                         HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center
                     };
-                cover.Children.Add(badge);
+                medallion.Children.Add(badge);
                 layout.Children.Add(cover);
             }
             if (config.Appearance.ShowTitles)
             {
+                // One short line under the picture; children recognise games by their artwork.
                 var title = new TextBlock { Text = game.Title, Foreground = new SolidColorBrush(Color.FromRgb(72, 55, 83)),
-                    FontSize = 24, FontWeight = FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap,
-                    TextTrimming = TextTrimming.CharacterEllipsis, MaxHeight = 66,
-                    Margin = new Thickness(18, 16, 18, 18), TextAlignment = TextAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
-                var caption = new Border { Background = cream, Height = 104, Child = title };
+                    FontSize = 18, FontWeight = FontWeights.SemiBold, TextWrapping = TextWrapping.NoWrap,
+                    TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(10, 0, 10, 0),
+                    TextAlignment = TextAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+                titles.Add(title);
+                var caption = new Border { Background = cream, Child = title };
                 Grid.SetRow(caption, 1);
                 layout.Children.Add(caption);
             }
@@ -479,8 +497,10 @@ namespace KidLauncher
             // Retry soon while a game, overlay, or menu blocks the scene, so a surprise follows shortly after it returns.
             if (!IdleMagic || !CanPlayWithScenery) { surpriseTimer.Interval = TimeSpan.FromSeconds(3); return; }
             surpriseTimer.Interval = TimeSpan.FromMilliseconds(random.Next(5000, 9000));
-            int next;
-            do next = random.Next(5); while (next == lastSurprise);
+            // Cards can cover the owl or fireflies on full screens; only pick surprises the child can see.
+            var choices = new[] { 0, 1, 2, 3, 4 }.Where(choice => choice != lastSurprise &&
+                (choice != 1 || Owl.Visibility == Visibility.Visible) && (choice != 2 || Fireflies.Visibility == Visibility.Visible)).ToArray();
+            int next = choices[random.Next(choices.Length)];
             lastSurprise = next;
             switch (next)
             {
@@ -789,14 +809,20 @@ namespace KidLauncher
                 string prefix = language == "nl" ? "launcher-" : "launcher-english-";
                 if (!ReturnButton.Content.Equals(language == "nl" ? "Terug naar mijn spelletjes" : "Back to my games"))
                     throw new InvalidOperationException("Launcher language did not update.");
+                if (Tiles.Children.Count != config.Games.Count || Navigation.Visibility == Visibility.Visible)
+                    throw new InvalidOperationException("All games must fit on one screen without page arrows.");
                 Capture(directory, prefix + "default.png");
+                config.Appearance.AllGamesOnOneScreen = false;
+                RenderPage();
                 Next.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-                if (page != 1 || Tiles.Children.Count != 1 || Next.IsEnabled || !Previous.IsEnabled)
+                if (page != 1 || Tiles.Children.Count != config.Games.Count - 12 || Next.IsEnabled || !Previous.IsEnabled)
                     throw new InvalidOperationException("Launcher pagination smoke check failed.");
                 Capture(directory, prefix + "page-2.png");
                 Previous.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 if (page != 0 || Tiles.Children.Count != 12 || !Next.IsEnabled || Previous.IsEnabled)
                     throw new InvalidOperationException("Launcher return-page smoke check failed.");
+                config.Appearance.AllGamesOnOneScreen = true;
+                RenderPage();
                 ShowOverlay(L("Let's go!", "Daar gaan we!"), L("Opening ", "We starten ") + "Putt-Putt Saves the Zoo…", false);
                 Capture(directory, prefix + "loading.png");
                 Error(L("That adventure couldn't start.", "Dit avontuur kon niet starten."), new IOException("Visual smoke test error state."));
@@ -820,7 +846,7 @@ namespace KidLauncher
             RenderPage();
             if (BackdropAccents.Visibility != Visibility.Collapsed) throw new InvalidOperationException("Wallpaper must suppress scenery.");
             Capture(directory, "launcher-wallpaper.png");
-            File.WriteAllText(Path.Combine(directory, "launcher-checks.txt"), "PASS: Dutch and English loading, error and empty states rendered. 12 tiles on page 1; 1 on page 2; previous/next Click events update pages without page text or headings.");
+            File.WriteAllText(Path.Combine(directory, "launcher-checks.txt"), "PASS: Dutch and English loading, error and empty states rendered. All " + config.Games.Count + " games fit on one screen without page arrows; with paging on, 12 tiles on page 1 and the rest on page 2; previous/next Click events update pages without page text or headings.");
             authorizedExit = true;
         }
 
@@ -989,12 +1015,20 @@ namespace KidLauncher
             {
                 try
                 {
-                    var image = new BitmapImage();
-                    image.BeginInit();
-                    image.CacheOption = BitmapCacheOption.OnLoad;
-                    image.DecodePixelWidth = 720;
-                    image.UriSource = new Uri(store.ResolvePath(artwork), UriKind.Absolute);
-                    image.EndInit();
+                    // Decode large images at 720px to save memory, but never upscale small ones:
+                    // the tile needs their real size to tell an icon from cover art.
+                    var uri = new Uri(store.ResolvePath(artwork), UriKind.Absolute);
+                    BitmapImage image = null;
+                    foreach (int width in new[] { 0, 720 })
+                    {
+                        image = new BitmapImage();
+                        image.BeginInit();
+                        image.CacheOption = BitmapCacheOption.OnLoad;
+                        image.DecodePixelWidth = width;
+                        image.UriSource = uri;
+                        image.EndInit();
+                        if (image.PixelWidth <= 720) break;
+                    }
                     image.Freeze();
                     return image;
                 }
