@@ -378,7 +378,13 @@ namespace KidLauncher.E2E
                     "card still responds to hover after returning from a game");
                 Desktop.MovePointer(4, 4);
                 Desktop.Key(0x09);
-                Until(() => tile.Current.HasKeyboardFocus, "Tab navigation still focuses a game after F6 return");
+                // Games are shuffled per launcher start, so Tab may reach any game first.
+                var titles = Games().Select(g => (string)g["Title"]).ToList();
+                Until(() =>
+                {
+                    var focused = AutomationElement.FocusedElement;
+                    return focused != null && focused.Current.ControlType == ControlType.Button && titles.Contains(focused.Current.Name);
+                }, "Tab navigation still focuses a game after F6 return");
                 Play(room, launcher, Stubborn, stubbornEvents, true, unrelated, originalMode);
                 File.Delete(missing);
                 Click(Find(room, ControlType.Button, Missing));
