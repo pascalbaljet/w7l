@@ -44,6 +44,7 @@ namespace KidLauncher.Core
         public int CursorHideSeconds { get; set; } = 5;
         public bool IdleAnimations { get; set; } = true;
         public bool AllGamesOnOneScreen { get; set; } = true;
+        public bool ShuffleGames { get; set; } = true;
     }
 
     public static class TileGrid
@@ -71,6 +72,7 @@ namespace KidLauncher.Core
     public sealed class ControlSettings
     {
         public int ExitVirtualKey { get; set; } = 0x75;
+        public bool BlockWindowsKey { get; set; } = true;
         public string PinSalt { get; set; } = "";
         public string PinHash { get; set; } = "";
     }

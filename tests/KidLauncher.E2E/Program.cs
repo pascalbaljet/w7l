@@ -502,6 +502,9 @@ namespace KidLauncher.E2E
         static void Play(AutomationElement room, Process launcher, string title, string events, bool stubborn, Process unrelated, string mode)
         {
             Desktop.Activate(Handle(room));
+            Desktop.Key(0x5C);
+            Thread.Sleep(1000);
+            Check(Desktop.Foreground == Handle(room), "the Windows key does not open the Start menu over the launcher");
             var tile = Find(room, ControlType.Button, title);
             Click(tile);
             // A second activation while loading must not launch another instance.
@@ -511,6 +514,9 @@ namespace KidLauncher.E2E
             var game = Process.GetProcessById(pid); owned.Add(game);
             var window = Window(game, null);
             Until(() => Desktop.Foreground == Handle(window), title + " receives foreground input");
+            Desktop.Key(0x5B); // A child presses the Windows key during play.
+            Thread.Sleep(1000);
+            Check(Desktop.Foreground == Handle(window), "the Windows key does not open the Start menu over " + title);
             Check(!Desktop.Visible(Handle(room)), "launcher hides while " + title + " is running");
             Until(() => File.Exists(Journal), "real game session persists recovery state");
             Desktop.Capture(Path.Combine(output, stubborn ? "04-stubborn-game.png" : "03-cooperative-game.png"));

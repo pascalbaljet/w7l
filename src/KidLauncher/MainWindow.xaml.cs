@@ -29,6 +29,9 @@ namespace KidLauncher
         private LauncherConfiguration config;
         private GameSession session;
         private WindowsHotkey hotkey;
+        private WindowsKeyBlocker keyBlocker;
+        // One shuffle per launcher start, so a returning child finds the card she just played where she left it.
+        private readonly int shuffleSeed = Environment.TickCount;
         private List<Game> games = new List<Game>();
         private int page;
         private int pageSize = 12;
@@ -154,7 +157,23 @@ namespace KidLauncher
                 Overlay.Visibility = Visibility.Collapsed;
             }
             catch (Exception ex) { Error(L("The play room needs a little help.", "De speelkamer heeft wat hulp nodig."), ex); }
-            finally { busy = false; BringBack(); }
+            finally { busy = false; UpdateWindowsKeyBlock(); BringBack(); }
+        }
+
+        // Blocks the Windows keys while the child uses the launcher or a game; grown-up time unblocks them.
+        private void UpdateWindowsKeyBlock()
+        {
+            bool block = !smokeTest && !adultOpen && config?.Controls?.BlockWindowsKey != false;
+            try
+            {
+                if (block && keyBlocker == null) keyBlocker = new WindowsKeyBlocker();
+                if (keyBlocker != null && keyBlocker.Enabled != block)
+                {
+                    keyBlocker.Enabled = block;
+                    log.Write("Windows key " + (block ? "blocked" : "allowed"));
+                }
+            }
+            catch (Exception ex) { log.Write("Windows key block unavailable: " + ex.Message); }
         }
 
         private string L(string english, string dutch) => config?.Language == "en" ? english : dutch;
@@ -203,6 +222,7 @@ namespace KidLauncher
             // On one screen, SizeTiles picks the columns that give the largest cards.
             pageSize = a.AllGamesOnOneScreen ? TileGrid.MaxOnOneScreen : columns * Math.Max(1, Math.Min(12 / columns, a.Rows));
             games = config.Games.Where(g => g.Visible).OrderBy(g => g.SortOrder).ThenBy(g => g.Title).ToList();
+            if (a.ShuffleGames && !smokeTest) { var shuffle = new Random(shuffleSeed); games = games.OrderBy(g => shuffle.Next()).ToList(); }
             var count = Math.Max(1, (games.Count + pageSize - 1) / pageSize);
             page = Math.Max(0, Math.Min(page, count - 1));
             var background = (Brush)new BrushConverter().ConvertFromString(a.BackgroundColor);
@@ -895,6 +915,7 @@ namespace KidLauncher
         private async Task OpenAdultAsync()
         {
             adultOpen = true;
+            UpdateWindowsKeyBlock();
             StopScenery();
             Mouse.OverrideCursor = null;
             try
@@ -961,6 +982,7 @@ namespace KidLauncher
             finally
             {
                 adultOpen = false; lastMove = DateTime.UtcNow;
+                if (!authorizedExit) UpdateWindowsKeyBlock();
             }
         }
 
@@ -1009,6 +1031,7 @@ namespace KidLauncher
             idleTimer.Stop();
             surpriseTimer.Stop();
             if (hotkey != null) hotkey.Dispose();
+            if (keyBlocker != null) keyBlocker.Dispose();
             Mouse.OverrideCursor = null;
         }
 

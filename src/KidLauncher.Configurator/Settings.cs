@@ -31,6 +31,8 @@ namespace KidLauncher.Configurator
             Field(p, "Hide cursor after inactivity (seconds)", a, "CursorHideSeconds", true);
             Check(p, "Gentle surprises while the launcher rests", a, "IdleAnimations");
             p.Children.Add(Note("Stars twinkle and the owl, fireflies, moon, or a shooting star do something small every few seconds. Windows reduced motion always turns this off."));
+            Check(p, "Shuffle the games each time the launcher starts", a, "ShuffleGames");
+            p.Children.Add(Note("The order stays the same until the launcher restarts, so a game is still in its place after F6. Clear this to use the order from the Games tab. The preview shows that order."));
             root.Children.Add(Scroll(p));
             var right = new DockPanel { Margin = new Thickness(12) }; Grid.SetColumn(right, 1); root.Children.Add(right);
             var title = Note("Live 1920 × 1080 layout preview. Only visible games appear. Images fill each tile without distortion."); DockPanel.SetDock(title, Dock.Top); right.Children.Add(title);
@@ -110,6 +112,9 @@ namespace KidLauncher.Configurator
             };
             p.Children.Add(capture);
             p.Children.Add(Note("Test games always use F6, regardless of the saved launcher key. A key registration check is not proof for elevated or exclusive-input games. If an elevated game cannot be controlled, run the launcher at the same privilege level only for trusted games; do not disable UAC."));
+            Heading(p, "Windows key");
+            Check(p, "Block the Windows keys while the launcher runs", config.Controls, "BlockWindowsKey");
+            p.Children.Add(Note("Stops a child from opening the Start menu or minimizing a game, in the launcher and during games. The keys work again while the grown-up menu or the configurator is open, and after Exit launcher to Windows. Ctrl+Alt+Del always works."));
             Heading(p, "Graceful / forced exit");
             p.Children.Add(Note("Exit timeouts and automatic force termination are per game, in Games → Process tracking and exit. A single press requests close, waits for that timeout, then force-closes tracked processes if enabled."));
             Heading(p, "Adult access PIN");

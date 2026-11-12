@@ -20,6 +20,10 @@ Stars across the sky twinkle and the moon's glow breathes. While the launcher re
 
 Hover over the moon to make it nod. Click it to send a shooting star across the sky. Hover over or click the constellation to wake its stars and draw the line between them. A sleepy owl in the lower-left corner peeks when you point at it and hops and flaps when you click it. Fireflies in the lower-right grass drift up when you point at them, and more join them on a click. The moon, constellation, owl, and fireflies hide when cards or page arrows would cover them, for example when many games share one screen. These effects finish within about two seconds and stop when a game starts or the adult menu opens. All of them accept keyboard activation after the game tiles in Tab order. Reduced motion disables these effects.
 
+The launcher blocks both Windows keys, in the launcher itself and during games, so a child cannot open the Start menu or minimize a game. The keys work again while the grown-up menu or the configurator is open, and after the launcher exits. Ctrl+Alt+Del always works. To allow the Windows keys, clear **Controls → Block the Windows keys while the launcher runs**. Elevated games need the launcher at the same privilege level, as with the exit key.
+
+The cards appear in a new random order each time the launcher starts. The order stays the same until the next start, so a game is still in its place after F6. To use the order from the Games tab, clear **Appearance → Shuffle the games each time the launcher starts**.
+
 Press **Ctrl+Alt+S**, then choose **Exit launcher to Windows** to close it. If a PIN is configured, enter it first. Without a PIN, the adult menu opens directly.
 
 Read the [deployment guide](docs/deployment.md) before testing with installed games. Windows CI compilation and automated tests do not establish Windows 7, fullscreen-game, or Virtual CloneDrive compatibility. Use the [real-machine checklist](docs/testing.md) to record those results.

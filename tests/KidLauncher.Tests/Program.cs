@@ -23,7 +23,7 @@ namespace KidLauncher.Tests
                 DisabledForceExitKeepsResources, LegacyDiscRestorationSettingIsIgnored, WindowsProcessIdentity,
                 FutureSchemaCannotBeOverwritten, DiscRecoveryIsIdempotent, RecoveryFindsUnrecordedChild,
                 ReportingFailureDoesNotLockSession, UncertainStartRequiresAdultRecovery, SelectedProcessNamesLeaveHelpersAlone,
-                WindowsShortcutLaunch, WindowsDisplayRejectsMismatchedNativeMode, DisplayModeScalingLabels, WindowsHotkeySurvivesBusyUi };
+                WindowsShortcutLaunch, WindowsDisplayRejectsMismatchedNativeMode, DisplayModeScalingLabels, WindowsHotkeySurvivesBusyUi, WindowsKeyBlockerSwallowsOnlyWindowsKeys };
             int failed = 0;
             foreach (var test in tests)
             {
@@ -74,6 +74,30 @@ namespace KidLauncher.Tests
             }
         }
 
+        private static void WindowsKeyBlockerSwallowsOnlyWindowsKeys()
+        {
+            // Holds a key down and reports whether Windows registered the press.
+            Func<ushort, bool> reachesWindows = key =>
+            {
+                SendKeyEvent(key, false); Thread.Sleep(50);
+                return (GetAsyncKeyState(key) & 0x8000) != 0;
+            };
+            using (var blocker = new WindowsKeyBlocker())
+            {
+                blocker.Enabled = true;
+                bool left = reachesWindows(0x5B); SendKeyEvent(0x5B, true);
+                bool right = reachesWindows(0x5C); SendKeyEvent(0x5C, true);
+                bool f7 = reachesWindows(0x76); SendKeyEvent(0x76, true);
+                Assert(!left && !right, "Windows received a blocked Windows key (left " + left + ", right " + right + ").");
+                Assert(f7, "The Windows key blocker swallowed F7.");
+                blocker.Enabled = false;
+                bool allowed = reachesWindows(0x5B);
+                // An unassigned key in between makes this a chord, so releasing Win does not open the Start menu.
+                SendKeyEvent(0x88, false); SendKeyEvent(0x88, true); SendKeyEvent(0x5B, true);
+                Assert(allowed, "A disabled blocker still swallowed the Windows key.");
+            }
+        }
+
         // This suite's runtime contract requires x86; native INPUT is 28 bytes.
         [StructLayout(LayoutKind.Explicit, Size = 28)]
         private struct KeyInput
@@ -82,12 +106,18 @@ namespace KidLauncher.Tests
             [FieldOffset(4)] public ushort Key;
             [FieldOffset(8)] public uint Flags;
         }
+        private static void SendKeyEvent(ushort key, bool up)
+        {
+            var inputs = new[] { new KeyInput { Type = 1, Key = key, Flags = up ? 2u : 0u } };
+            Assert(SendInput(1, inputs, Marshal.SizeOf(typeof(KeyInput))) == 1, "Windows did not accept the test key event.");
+        }
         private static void SendKey(ushort key)
         {
             var inputs = new[] { new KeyInput { Type = 1, Key = key }, new KeyInput { Type = 1, Key = key, Flags = 2 } };
             Assert(SendInput(2, inputs, Marshal.SizeOf(typeof(KeyInput))) == 2, "Windows did not accept the test key press.");
         }
         [DllImport("user32.dll", SetLastError = true)] private static extern uint SendInput(uint count, KeyInput[] inputs, int size);
+        [DllImport("user32.dll")] private static extern short GetAsyncKeyState(int key);
 
         private static void Throws(Action action)
         {
