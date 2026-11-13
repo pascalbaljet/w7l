@@ -542,12 +542,13 @@ namespace KidLauncher.E2E
             Check(exitTimer.ElapsedMilliseconds < 2000, "instant exit closes " + title + " without a grace period");
             Ready(room, launcher);
             Until(() => !File.Exists(Journal), "recovery finishes before reusing the launcher");
-            // The launcher used to stay hidden while the session restored the display and disc, showing the desktop.
+            // The launcher used to come back only after the game had gone, so the desktop showed in between.
             var session = File.ReadAllLines(Path.Combine(app, "Data", "Logs", "launcher.log"));
-            int exited = Array.FindLastIndex(session, l => l.Contains("All tracked game processes exited."));
-            int shown = exited < 0 ? -1 : Array.FindIndex(session, exited, l => l.Contains("Launcher back on screen after game exit."));
-            int restored = exited < 0 ? -1 : Array.FindIndex(session, exited, l => l.Contains("Original display mode restored."));
-            Check(shown > exited && restored > shown, "the launcher covers the desktop before " + title + "'s display mode is restored");
+            int exitLine = Array.FindLastIndex(session, l => l.Contains("Exit requested; closing the game instantly."));
+            int shown = exitLine < 0 ? -1 : Array.FindIndex(session, exitLine, l => l.Contains("Launcher back on screen as the game closes."));
+            int killed = exitLine < 0 ? -1 : Array.FindIndex(session, exitLine, l => l.Contains("Forcefully terminating tracked process"));
+            int restored = exitLine < 0 ? -1 : Array.FindIndex(session, exitLine, l => l.Contains("Original display mode restored."));
+            Check(shown > exitLine && killed > shown && restored > killed, "the launcher covers " + title + " before closing it and restoring the display mode");
             string[] lines = File.ReadAllLines(events);
             var requested = Games().Single(configured => (string)configured["Title"] == title)["Resolution"] as Dictionary<string, object>;
             if (requested != null)

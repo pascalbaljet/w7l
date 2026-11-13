@@ -248,12 +248,12 @@ namespace KidLauncher.Tests
                 f.Processes.CloseWorks = true; f.Config.Controls.InstantExit = false;
                 // The launcher returns while the game's 800×600 mode is still active, not after restoring 1920×1080.
                 var seenWidths = new List<int>();
-                f.Session.GameEnded = () => { seenWidths.Add(f.Display.Current.Width); return Task.CompletedTask; };
+                f.Session.GameClosing = () => { seenWidths.Add(f.Display.Current.Width); return Task.CompletedTask; };
                 var task = f.Session.RunAsync(f.Game, CancellationToken.None);
                 Complete(f.Session.RequestExitAsync()); Complete(task);
                 Assert(f.Processes.Closed && !f.Processes.Terminated, "Graceful exit unnecessarily forced.");
-                Assert(seenWidths.SequenceEqual(new[] { 800 }), "GameEnded must run once, after the game exits and before the display is restored; saw " + string.Join(",", seenWidths));
-                Assert(f.Display.Current.Width == 1920, "Display not restored after GameEnded.");
+                Assert(seenWidths.SequenceEqual(new[] { 800 }), "GameClosing must run once, after the game exits and before the display is restored; saw " + string.Join(",", seenWidths));
+                Assert(f.Display.Current.Width == 1920, "Display not restored after GameClosing.");
             }
         }
         private static void InstantExitSkipsGracePeriod()
@@ -263,10 +263,14 @@ namespace KidLauncher.Tests
                 {
                     // A game that ignores close requests, with a grace period far longer than the wait below.
                     f.Game.GracefulExitTimeoutMs = 5000; f.Config.Controls.InstantExit = instant;
+                    // Instant exit covers the screen while the game still shows, never after it has gone.
+                    var closing = new List<bool>();
+                    f.Session.GameClosing = () => { closing.Add(f.Processes.Terminated); return Task.CompletedTask; };
                     var task = f.Session.RunAsync(f.Game, CancellationToken.None);
                     var exit = f.Session.RequestExitAsync();
                     bool finished = exit.Wait(1500);
                     if (instant) Assert(finished && f.Processes.Terminated && !f.Processes.Closed, "Instant exit waited or sent a close request.");
+                    if (instant) Assert(closing.SequenceEqual(new[] { false }), "Instant exit must announce closing once, before terminating the game.");
                     else Assert(!finished && f.Processes.Closed && !f.Processes.Terminated, "Disabled instant exit skipped the graceful timeout.");
                     f.Processes.Alive = false;
                     Complete(exit); Complete(task);

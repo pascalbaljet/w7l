@@ -50,6 +50,9 @@ namespace KidLauncher
         private DateTime lastMove = DateTime.UtcNow;
         private DateTime lastWheel = DateTime.MinValue;
         private DateTime returnShown = DateTime.MinValue;
+        // While a game closes, the window keeps its desktop size, even while the game's lower resolution is still active.
+        private bool returning;
+        private Size desktopSize;
         private string diagnostic = "No errors reported.";
         private readonly string[] colors = { "#B9D8CC", "#EDC7B5", "#CFC5E6", "#BFD6E6", "#D3D8B6", "#E6C1D2" };
         public bool OperationActive { get { return busy || (session != null && session.IsRunning); } }
@@ -202,7 +205,7 @@ namespace KidLauncher
                 Topmost = false;
                 Hide();
             }));
-            session.GameEnded = () => Dispatcher.Invoke(() => ShowReturnAsync());
+            session.GameClosing = () => Dispatcher.Invoke(() => ShowReturnAsync());
             session.StatusChanged += message => log.Write("Session: " + message);
         }
 
@@ -744,6 +747,7 @@ namespace KidLauncher
                 await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Render);
                 await Task.Delay(180); // Let one loading frame paint even for instant-start games.
                 hotkey.Enabled = true;
+                desktopSize = new Size(Width, Height);
                 await session.RunAsync(game, CancellationToken.None);
                 // Keep "welcome back" on screen long enough to read as a greeting, not a flicker.
                 double shown = (DateTime.UtcNow - returnShown).TotalMilliseconds;
@@ -755,6 +759,7 @@ namespace KidLauncher
             finally
             {
                 Sparkles.Children.Clear();
+                returning = false;
                 if (hotkey != null) hotkey.Enabled = false;
                 busy = false;
                 PlayRoom.IsEnabled = true;
@@ -807,14 +812,15 @@ namespace KidLauncher
             }
         }
 
-        // The game is gone: cover the desktop while the session restores the display mode and disc.
+        // The game is closing: cover it before the session force-closes it and restores the display mode and disc.
         private async Task ShowReturnAsync()
         {
             ShowReturnOverlay();
             returnShown = DateTime.UtcNow;
+            returning = true;
             BringBack(true);
-            log.Write("Launcher back on screen after game exit.");
-            // Let the window paint before display restoration blocks this thread.
+            log.Write("Launcher back on screen as the game closes.");
+            // Let the window paint before the game disappears and display restoration blocks this thread.
             await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Render);
             await Task.Delay(100);
         }
@@ -833,13 +839,15 @@ namespace KidLauncher
             finally { exitRequested = false; }
         }
 
-        private void BringBack(bool gameEnded = false)
+        private void BringBack(bool gameClosing = false)
         {
-            if (!gameEnded && session != null && session.IsRunning) return;
+            if (!gameClosing && session != null && session.IsRunning) return;
             // Replace the remembered child before Show can restore its logical focus.
             FocusManager.SetFocusedElement(this, Backdrop);
             Show();
-            EnterFullscreen();
+            // Sized to the game's lower resolution, the window would sit in a corner once the desktop mode returns.
+            if (returning && !smokeTest) { WindowState = WindowState.Normal; Left = 0; Top = 0; Width = desktopSize.Width; Height = desktopSize.Height; }
+            else EnterFullscreen();
             Topmost = true;
             Activate();
             SetForegroundWindow(new WindowInteropHelper(this).Handle);
@@ -864,7 +872,7 @@ namespace KidLauncher
 
         private void DisplaySettingsChanged(object sender, EventArgs args)
         {
-            Dispatcher.BeginInvoke(new Action(() => { if (IsVisible) EnterFullscreen(); }));
+            Dispatcher.BeginInvoke(new Action(() => { if (IsVisible && !returning) EnterFullscreen(); }));
         }
 
         private void ShowOverlay(string title, string message, bool canReturn)
@@ -1033,6 +1041,11 @@ namespace KidLauncher
             Capture(directory, "launcher-wallpaper.png");
             // The hover notes, for listening to what a build plays.
             for (int i = 0; i < 10; i++) File.WriteAllBytes(Path.Combine(directory, "chime-" + i + ".wav"), Chimes.Wave(i));
+            // A quick sweep must let notes overlap, not cut each other off. Runners without audio cannot open a voice.
+            bool first = Chimes.Play(0), second = Chimes.Play(4);
+            int ringing = Chimes.Playing;
+            if (first && second && ringing < 2) throw new InvalidOperationException("Two quick hover notes must ring together; " + ringing + " playing.");
+            File.WriteAllText(Path.Combine(directory, "chime-check.txt"), first && second ? "Two quick notes ring together: " + ringing + " voices." : "No audio device; chime overlap not checked.");
             File.WriteAllText(Path.Combine(directory, "launcher-checks.txt"), "PASS: Dutch and English loading, welcome-back, error and empty states rendered. All " + config.Games.Count + " games fit on one screen without page arrows, with the moon, stars, owl and fireflies visible beside them; with paging on, 12 tiles on page 1 and the rest on page 2; previous/next Click events update pages without page text or headings.");
             authorizedExit = true;
         }
