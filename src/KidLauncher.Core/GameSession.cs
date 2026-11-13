@@ -24,6 +24,9 @@ namespace KidLauncher.Core
         public bool IsRunning { get; private set; }
         public IReadOnlyList<TrackedProcess> ObservedProcesses => observed.ToArray();
         public event Action GameStarting;
+        // Runs once the game's processes are gone, before the display and disc are restored,
+        // so the launcher can cover the desktop during that cleanup. Its failure never blocks it.
+        public Func<Task> GameEnded { get; set; }
         public event Action<string> StatusChanged;
 
         public GameSession(ConfigurationStore store, LauncherConfiguration config, IDisplayService display,
@@ -220,6 +223,11 @@ namespace KidLauncher.Core
                     await Task.Delay(150);
                 }
                 Report("All tracked game processes exited.");
+                if (GameEnded != null)
+                {
+                    try { await GameEnded(); }
+                    catch (Exception error) { Report("Game-ended handler failed: " + error.Message); }
+                }
             }
             catch (Exception e) { failure = e; Report("Game session failed: " + e); }
             finally

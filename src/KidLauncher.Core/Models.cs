@@ -45,6 +45,7 @@ namespace KidLauncher.Core
         public bool IdleAnimations { get; set; } = true;
         public bool AllGamesOnOneScreen { get; set; } = true;
         public bool ShuffleGames { get; set; } = true;
+        public bool HoverSounds { get; set; } = true;
     }
 
     public static class TileGrid

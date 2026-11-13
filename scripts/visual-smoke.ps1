@@ -12,9 +12,9 @@ function Invoke-Smoke([string]$Executable, [string]$Arguments) {
 }
 Invoke-Smoke 'artifacts/bin/KidLauncher/Release/KidLauncher.exe' "--smoke-test --screenshots `"$output`""
 Invoke-Smoke 'artifacts/bin/KidLauncher.Configurator/Release/KidLauncher.Configurator.exe' "--smoke-test --screenshot `"$output/configurator.png`""
-foreach ($image in @('launcher-default.png','launcher-page-2.png','launcher-loading.png','launcher-error.png','launcher-empty.png',
+foreach ($image in @('launcher-default.png','launcher-page-2.png','launcher-loading.png','launcher-returning.png','launcher-error.png','launcher-empty.png',
     'launcher-artwork.png','launcher-no-titles.png','launcher-wallpaper.png',
-    'launcher-english-default.png','launcher-english-page-2.png','launcher-english-loading.png','launcher-english-error.png','launcher-english-empty.png','configurator.png')) {
+    'launcher-english-default.png','launcher-english-page-2.png','launcher-english-loading.png','launcher-english-returning.png','launcher-english-error.png','launcher-english-empty.png','configurator.png')) {
     if (-not (Test-Path "$output/$image")) { throw "Visual capture missing: $image" }
 }
 Get-Content "$output/launcher-checks.txt"

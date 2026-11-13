@@ -246,9 +246,14 @@ namespace KidLauncher.Tests
             using (var f = new Fixture())
             {
                 f.Processes.CloseWorks = true; f.Config.Controls.InstantExit = false;
+                // The launcher returns while the game's 800×600 mode is still active, not after restoring 1920×1080.
+                var seenWidths = new List<int>();
+                f.Session.GameEnded = () => { seenWidths.Add(f.Display.Current.Width); return Task.CompletedTask; };
                 var task = f.Session.RunAsync(f.Game, CancellationToken.None);
                 Complete(f.Session.RequestExitAsync()); Complete(task);
                 Assert(f.Processes.Closed && !f.Processes.Terminated, "Graceful exit unnecessarily forced.");
+                Assert(seenWidths.SequenceEqual(new[] { 800 }), "GameEnded must run once, after the game exits and before the display is restored; saw " + string.Join(",", seenWidths));
+                Assert(f.Display.Current.Width == 1920, "Display not restored after GameEnded.");
             }
         }
         private static void InstantExitSkipsGracePeriod()

@@ -49,6 +49,7 @@ namespace KidLauncher
         private readonly bool smokeTest;
         private DateTime lastMove = DateTime.UtcNow;
         private DateTime lastWheel = DateTime.MinValue;
+        private DateTime returnShown = DateTime.MinValue;
         private string diagnostic = "No errors reported.";
         private readonly string[] colors = { "#B9D8CC", "#EDC7B5", "#CFC5E6", "#BFD6E6", "#D3D8B6", "#E6C1D2" };
         public bool OperationActive { get { return busy || (session != null && session.IsRunning); } }
@@ -201,6 +202,7 @@ namespace KidLauncher
                 Topmost = false;
                 Hide();
             }));
+            session.GameEnded = () => Dispatcher.Invoke(() => ShowReturnAsync());
             session.StatusChanged += message => log.Write("Session: " + message);
         }
 
@@ -411,7 +413,7 @@ namespace KidLauncher
             Action updateFeedback = () =>
             {
                 bool active = button.IsEnabled && (button.IsMouseOver || button.IsKeyboardFocusWithin);
-                if (active && !highlighted) twinkle();
+                if (active && !highlighted) { twinkle(); Chime(button); }
                 highlighted = active;
                 AnimateValue(scale, ScaleTransform.ScaleXProperty, active ? 1.025 : 1, 180);
                 AnimateValue(scale, ScaleTransform.ScaleYProperty, active ? 1.025 : 1, 180);
@@ -431,6 +433,17 @@ namespace KidLauncher
         }
 
         private bool MotionEnabled => !smokeTest && SystemParameters.ClientAreaAnimation;
+
+        // Each card has its own note: left to right climbs the scale, and each row up starts two notes higher.
+        private void Chime(Button card)
+        {
+            if (smokeTest || config?.Appearance?.HoverSounds == false || !IsVisible || Overlay.IsVisible) return;
+            int index = Tiles.Children.IndexOf(card);
+            if (index < 0 || Tiles.Columns < 1) return;
+            int column = index % Tiles.Columns, rowFromBottom = Math.Max(0, Tiles.Rows - 1 - index / Tiles.Columns);
+            try { Chimes.Play(column + 2 * rowFromBottom); }
+            catch (Exception ex) { log.Write("Hover chime unavailable: " + ex.Message); }
+        }
 
         private bool CanPlayWithScenery => MotionEnabled && !OperationActive && !adultOpen &&
             IsVisible && !Overlay.IsVisible && BackdropAccents.IsVisible;
@@ -732,7 +745,11 @@ namespace KidLauncher
                 await Task.Delay(180); // Let one loading frame paint even for instant-start games.
                 hotkey.Enabled = true;
                 await session.RunAsync(game, CancellationToken.None);
-                Overlay.Visibility = Visibility.Collapsed;
+                // Keep "welcome back" on screen long enough to read as a greeting, not a flicker.
+                double shown = (DateTime.UtcNow - returnShown).TotalMilliseconds;
+                if (MotionEnabled && Overlay.IsVisible && shown < 500) await Task.Delay((int)(500 - shown));
+                PlayRoom.IsEnabled = true; // The cards fade in at full color, not dimmed as disabled.
+                await HideOverlayAsync();
             }
             catch (Exception ex) { Error(L("That adventure couldn't start.", "Dit avontuur kon niet starten."), ex); }
             finally
@@ -790,6 +807,23 @@ namespace KidLauncher
             }
         }
 
+        // The game is gone: cover the desktop while the session restores the display mode and disc.
+        private async Task ShowReturnAsync()
+        {
+            ShowReturnOverlay();
+            returnShown = DateTime.UtcNow;
+            BringBack(true);
+            log.Write("Launcher back on screen after game exit.");
+            // Let the window paint before display restoration blocks this thread.
+            await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Render);
+            await Task.Delay(100);
+        }
+
+        private void ShowReturnOverlay()
+        {
+            ShowOverlay(L("Welcome back!", "Welkom terug!"), L("Your games are coming back…", "Je spelletjes komen eraan…"), false);
+        }
+
         public async void RequestGameExit()
         {
             if (session == null || !session.IsRunning || exitRequested) return;
@@ -799,9 +833,9 @@ namespace KidLauncher
             finally { exitRequested = false; }
         }
 
-        private void BringBack()
+        private void BringBack(bool gameEnded = false)
         {
-            if (session != null && session.IsRunning) return;
+            if (!gameEnded && session != null && session.IsRunning) return;
             // Replace the remembered child before Show can restore its logical focus.
             FocusManager.SetFocusedElement(this, Backdrop);
             Show();
@@ -838,38 +872,80 @@ namespace KidLauncher
             OverlayTitle.Text = title;
             OverlayMessage.Text = message;
             ReturnButton.Visibility = canReturn ? Visibility.Visible : Visibility.Collapsed;
+            OverlayDots.Visibility = canReturn ? Visibility.Collapsed : Visibility.Visible;
+            Overlay.BeginAnimation(UIElement.OpacityProperty, null);
             Overlay.Visibility = Visibility.Visible;
             AnimateOverlayStar();
             Mouse.OverrideCursor = null;
         }
 
+        private async Task HideOverlayAsync()
+        {
+            if (MotionEnabled && Overlay.IsVisible)
+            {
+                Overlay.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(260))
+                    { EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseIn } });
+                await Task.Delay(260);
+            }
+            Overlay.Visibility = Visibility.Collapsed;
+            Overlay.BeginAnimation(UIElement.OpacityProperty, null);
+        }
+
+        // While the loading and welcome-back screens wait, the star floats, its glow breathes, little sparkles
+        // twinkle and three stars hop in turn. Hiding the overlay or the window stops it all; errors stay still.
         private void AnimateOverlayStar()
         {
             var transforms = (TransformGroup)OverlaySymbol.RenderTransform;
             var scale = (ScaleTransform)transforms.Children[0];
             var rotation = (RotateTransform)transforms.Children[1];
+            var bob = (TranslateTransform)transforms.Children[2];
+            var glow = (ScaleTransform)OverlayGlow.RenderTransform;
+            var hops = OverlayDots.Children.Cast<UIElement>().Select(dot => (TranslateTransform)dot.RenderTransform).ToArray();
+            var sparkles = OverlaySparkles.Children.Cast<UIElement>().ToArray();
             scale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
             scale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
             rotation.BeginAnimation(RotateTransform.AngleProperty, null);
-            // A short greeting, never an endless spinner; errors remain calm and still.
+            bob.BeginAnimation(TranslateTransform.YProperty, null);
+            glow.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+            glow.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+            OverlayGlow.BeginAnimation(UIElement.OpacityProperty, null);
+            OverlayContent.BeginAnimation(UIElement.OpacityProperty, null);
+            foreach (var hop in hops) hop.BeginAnimation(TranslateTransform.YProperty, null);
+            foreach (var sparkle in sparkles) sparkle.BeginAnimation(UIElement.OpacityProperty, null);
             if (!MotionEnabled || !Overlay.IsVisible || ReturnButton.Visibility == Visibility.Visible) return;
-            var pulse = new DoubleAnimation(1, 1.09, TimeSpan.FromMilliseconds(600))
-            {
-                AutoReverse = true, RepeatBehavior = new RepeatBehavior(2), FillBehavior = FillBehavior.Stop,
-                EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut }
-            };
-            scale.BeginAnimation(ScaleTransform.ScaleXProperty, pulse);
-            scale.BeginAnimation(ScaleTransform.ScaleYProperty, pulse);
-            var sway = new DoubleAnimationUsingKeyFrames
-            {
-                Duration = TimeSpan.FromMilliseconds(1200), RepeatBehavior = new RepeatBehavior(2), FillBehavior = FillBehavior.Stop
-            };
-            var ease = new SineEase { EasingMode = EasingMode.EaseInOut };
+            var sine = new SineEase { EasingMode = EasingMode.EaseInOut };
+            OverlayContent.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(250)) { FillBehavior = FillBehavior.Stop });
+            var pop = new DoubleAnimation(0.6, 1, TimeSpan.FromMilliseconds(500))
+                { FillBehavior = FillBehavior.Stop, EasingFunction = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.6 } };
+            scale.BeginAnimation(ScaleTransform.ScaleXProperty, pop);
+            scale.BeginAnimation(ScaleTransform.ScaleYProperty, pop);
+            bob.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(0, -10, TimeSpan.FromMilliseconds(1100))
+                { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever, EasingFunction = sine });
+            var sway = new DoubleAnimationUsingKeyFrames { Duration = TimeSpan.FromMilliseconds(2400), RepeatBehavior = RepeatBehavior.Forever };
             sway.KeyFrames.Add(new LinearDoubleKeyFrame(0, KeyTime.FromPercent(0)));
-            sway.KeyFrames.Add(new EasingDoubleKeyFrame(-6, KeyTime.FromPercent(0.25), ease));
-            sway.KeyFrames.Add(new EasingDoubleKeyFrame(6, KeyTime.FromPercent(0.75), ease));
-            sway.KeyFrames.Add(new EasingDoubleKeyFrame(0, KeyTime.FromPercent(1), ease));
+            sway.KeyFrames.Add(new EasingDoubleKeyFrame(-6, KeyTime.FromPercent(0.25), sine));
+            sway.KeyFrames.Add(new EasingDoubleKeyFrame(6, KeyTime.FromPercent(0.75), sine));
+            sway.KeyFrames.Add(new EasingDoubleKeyFrame(0, KeyTime.FromPercent(1), sine));
             rotation.BeginAnimation(RotateTransform.AngleProperty, sway);
+            var breathe = new DoubleAnimation(0.88, 1.08, TimeSpan.FromMilliseconds(1600))
+                { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever, EasingFunction = sine };
+            glow.BeginAnimation(ScaleTransform.ScaleXProperty, breathe);
+            glow.BeginAnimation(ScaleTransform.ScaleYProperty, breathe);
+            OverlayGlow.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(0.7, 1, TimeSpan.FromMilliseconds(1600))
+                { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever, EasingFunction = sine });
+            for (int i = 0; i < hops.Length; i++)
+            {
+                var hop = new DoubleAnimationUsingKeyFrames
+                    { Duration = TimeSpan.FromMilliseconds(1200), RepeatBehavior = RepeatBehavior.Forever, BeginTime = TimeSpan.FromMilliseconds(i * 160) };
+                hop.KeyFrames.Add(new LinearDoubleKeyFrame(0, KeyTime.FromPercent(0)));
+                hop.KeyFrames.Add(new EasingDoubleKeyFrame(-12, KeyTime.FromPercent(0.18), new QuadraticEase { EasingMode = EasingMode.EaseOut }));
+                hop.KeyFrames.Add(new EasingDoubleKeyFrame(0, KeyTime.FromPercent(0.36), new QuadraticEase { EasingMode = EasingMode.EaseIn }));
+                hop.KeyFrames.Add(new LinearDoubleKeyFrame(0, KeyTime.FromPercent(1)));
+                hops[i].BeginAnimation(TranslateTransform.YProperty, hop);
+            }
+            for (int i = 0; i < sparkles.Length; i++)
+                sparkles[i].BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(0.15, 1, TimeSpan.FromMilliseconds(700 + i * 130))
+                    { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever, BeginTime = TimeSpan.FromMilliseconds(i * 300), EasingFunction = sine });
         }
 
         private void Error(string title, Exception ex)
@@ -932,6 +1008,8 @@ namespace KidLauncher
                 RenderPage();
                 ShowOverlay(L("Let's go!", "Daar gaan we!"), L("Opening ", "We starten ") + "Putt-Putt Saves the Zoo…", false);
                 Capture(directory, prefix + "loading.png");
+                ShowReturnOverlay();
+                Capture(directory, prefix + "returning.png");
                 Error(L("That adventure couldn't start.", "Dit avontuur kon niet starten."), new IOException("Visual smoke test error state."));
                 Capture(directory, prefix + "error.png");
                 config.Games.ForEach(game => game.Visible = false);
@@ -953,7 +1031,9 @@ namespace KidLauncher
             RenderPage();
             if (BackdropAccents.Visibility != Visibility.Collapsed) throw new InvalidOperationException("Wallpaper must suppress scenery.");
             Capture(directory, "launcher-wallpaper.png");
-            File.WriteAllText(Path.Combine(directory, "launcher-checks.txt"), "PASS: Dutch and English loading, error and empty states rendered. All " + config.Games.Count + " games fit on one screen without page arrows, with the moon, stars, owl and fireflies visible beside them; with paging on, 12 tiles on page 1 and the rest on page 2; previous/next Click events update pages without page text or headings.");
+            // The hover notes, for listening to what a build plays.
+            for (int i = 0; i < 10; i++) File.WriteAllBytes(Path.Combine(directory, "chime-" + i + ".wav"), Chimes.Wave(i));
+            File.WriteAllText(Path.Combine(directory, "launcher-checks.txt"), "PASS: Dutch and English loading, welcome-back, error and empty states rendered. All " + config.Games.Count + " games fit on one screen without page arrows, with the moon, stars, owl and fireflies visible beside them; with paging on, 12 tiles on page 1 and the rest on page 2; previous/next Click events update pages without page text or headings.");
             authorizedExit = true;
         }
 

@@ -31,6 +31,8 @@ namespace KidLauncher.Configurator
             Field(p, "Hide cursor after inactivity (seconds)", a, "CursorHideSeconds", true);
             Check(p, "Gentle surprises while the launcher rests", a, "IdleAnimations");
             p.Children.Add(Note("Stars twinkle and the owl, fireflies, moon, or a shooting star do something small every few seconds. Windows reduced motion always turns this off."));
+            Check(p, "Play a soft chime when the pointer moves over a game", a, "HoverSounds");
+            p.Children.Add(Note("Each card plays its own note, rising from the lower left to the upper right like a xylophone. The computer's volume controls how loud it is."));
             Check(p, "Shuffle the games each time the launcher starts", a, "ShuffleGames");
             p.Children.Add(Note("The order stays the same until the launcher restarts, so a game is still in its place after F6. Clear this to use the order from the Games tab. The preview shows that order."));
             root.Children.Add(Scroll(p));
