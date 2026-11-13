@@ -50,6 +50,7 @@ namespace KidLauncher
         private DateTime lastMove = DateTime.UtcNow;
         private DateTime lastWheel = DateTime.MinValue;
         private DateTime returnShown = DateTime.MinValue;
+        private int overlayShows;
         // While a game closes, the window keeps its desktop size, even while the game's lower resolution is still active.
         private bool returning;
         private Size desktopSize;
@@ -735,7 +736,7 @@ namespace KidLauncher
 
         private async Task LaunchAsync(Game game, FrameworkElement card)
         {
-            if (OperationActive || !recovered || Overlay.Visibility == Visibility.Visible || adultOpen) return;
+            if (OperationActive || !recovered || OverlayBlocking || adultOpen) return;
             busy = true;
             try
             {
@@ -752,8 +753,8 @@ namespace KidLauncher
                 // Keep "welcome back" on screen long enough to read as a greeting, not a flicker.
                 double shown = (DateTime.UtcNow - returnShown).TotalMilliseconds;
                 if (MotionEnabled && Overlay.IsVisible && shown < 500) await Task.Delay((int)(500 - shown));
-                PlayRoom.IsEnabled = true; // The cards fade in at full color, not dimmed as disabled.
-                await HideOverlayAsync();
+                // The cards are playable at once, while the overlay fades away above them.
+                HideOverlay();
             }
             catch (Exception ex) { Error(L("That adventure couldn't start.", "Dit avontuur kon niet starten."), ex); }
             finally
@@ -881,19 +882,28 @@ namespace KidLauncher
             OverlayMessage.Text = message;
             ReturnButton.Visibility = canReturn ? Visibility.Visible : Visibility.Collapsed;
             OverlayDots.Visibility = canReturn ? Visibility.Collapsed : Visibility.Visible;
+            overlayShows++;
             Overlay.BeginAnimation(UIElement.OpacityProperty, null);
+            Overlay.IsHitTestVisible = true;
             Overlay.Visibility = Visibility.Visible;
             AnimateOverlayStar();
             Mouse.OverrideCursor = null;
         }
 
-        private async Task HideOverlayAsync()
+        // A fading overlay no longer covers anything: clicks pass through to the cards below it.
+        private bool OverlayBlocking => Overlay.Visibility == Visibility.Visible && Overlay.IsHitTestVisible;
+
+        private async void HideOverlay()
         {
+            Overlay.IsHitTestVisible = false;
+            int shows = overlayShows;
             if (MotionEnabled && Overlay.IsVisible)
             {
                 Overlay.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(260))
                     { EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseIn } });
                 await Task.Delay(260);
+                // A game chosen during the fade has shown its loading screen; leave that one alone.
+                if (shows != overlayShows) return;
             }
             Overlay.Visibility = Visibility.Collapsed;
             Overlay.BeginAnimation(UIElement.OpacityProperty, null);
@@ -978,7 +988,7 @@ namespace KidLauncher
 
         private void ChangePage(int delta)
         {
-            if (OperationActive || adultOpen || Overlay.Visibility == Visibility.Visible) return;
+            if (OperationActive || adultOpen || OverlayBlocking) return;
             int newPage = Math.Max(0, Math.Min(page + delta, Math.Max(0, (games.Count - 1) / pageSize)));
             if (page == newPage) return;
             page = newPage;
