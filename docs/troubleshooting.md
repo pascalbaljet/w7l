@@ -52,3 +52,7 @@ If an older build reported a missing media-change counter, update both applicati
 4. Restore a known valid backup if both files are damaged.
 
 Future schema versions are rejected rather than silently downgraded. An older application must not overwrite configuration from a newer incompatible version. Normal configuration changes belong in the graphical configurator.
+
+## 16-bit Windows 3.x games
+
+Windows 7 normally runs every 16-bit Windows program inside one shared `ntvdm.exe`. A program started into that shared process has no process of its own, so the launcher could not record it. KidLauncher therefore starts each `.exe` game with its own `ntvdm.exe` (`CREATE_SEPARATE_WOW_VDM`). F6 closes that `ntvdm.exe` and the game inside it. 32-bit games ignore this setting. Shortcuts (`.lnk`) and games set to run as administrator still start through the Windows shell.

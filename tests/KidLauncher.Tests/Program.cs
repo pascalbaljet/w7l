@@ -16,7 +16,12 @@ namespace KidLauncher.Tests
         [STAThread]
         private static int Main(string[] args)
         {
-            if (args.Contains("--process-fixture")) { Thread.Sleep(30000); return 0; }
+            if (args.Contains("--process-fixture"))
+            {
+                int report = Array.IndexOf(args, "--report");
+                if (report >= 0) File.WriteAllText(args[report + 1], Environment.CurrentDirectory + Environment.NewLine + string.Join("|", args));
+                Thread.Sleep(30000); return 0;
+            }
             var tests = new Action[] { RuntimeContract, ConfigurationRoundTrip, Validation, PinHash, ForcedExitAndChildHandoff,
                 GracefulExit, InstantExitSkipsGracePeriod, LaunchFailureRestores, MountFailurePreventsLaunch, ExistingDiscIsReplaced,
                 DiscCanRemainMounted, RecoveryWaitsForGame, FailedRestorationIsRetried, ConcurrentSessionsRejected,
@@ -386,16 +391,26 @@ namespace KidLauncher.Tests
         private static void WindowsProcessIdentity()
         {
             var service = new WindowsProcessService();
-            var owned = service.Start(new Game { ExecutablePath = typeof(Program).Assembly.Location, Arguments = "--process-fixture" }, AppDomain.CurrentDomain.BaseDirectory);
+            // A working directory and argument with spaces: the game must receive both exactly as configured.
+            var directory = Path.Combine(Path.GetTempPath(), "KidLauncher fixture " + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(directory);
+            var report = Path.Combine(directory, "start report.txt");
+            var owned = service.Start(new Game { ExecutablePath = typeof(Program).Assembly.Location, WorkingDirectory = directory,
+                Arguments = "--process-fixture --report \"" + report + "\"" }, AppDomain.CurrentDomain.BaseDirectory);
             try
             {
+                Assert(SpinWait.SpinUntil(() => File.Exists(report) && new FileInfo(report).Length > 0, 5000), "Started game never ran.");
+                Thread.Sleep(100);
+                var lines = File.ReadAllLines(report);
+                Assert(lines[0].TrimEnd('\\') == directory.TrimEnd('\\') && lines[1] == "--process-fixture|--report|" + report,
+                    "Game did not receive its working directory and arguments: " + string.Join(" / ", lines));
                 var reused = new TrackedProcess { Id = owned.Id, Name = owned.Name, StartTimeUtcTicks = owned.StartTimeUtcTicks + 1 };
                 service.RequestClose(reused); service.Terminate(reused);
                 Assert(service.IsAlive(owned) && !service.IsAlive(reused), "PID without matching creation time was acted on.");
                 service.Terminate(owned);
                 Assert(SpinWait.SpinUntil(() => !service.IsAlive(owned), 3000), "Owned process did not terminate.");
             }
-            finally { if (service.IsAlive(owned)) service.Terminate(owned); }
+            finally { if (service.IsAlive(owned)) service.Terminate(owned); Thread.Sleep(200); Directory.Delete(directory, true); }
         }
 
         private static void WindowsShortcutLaunch()

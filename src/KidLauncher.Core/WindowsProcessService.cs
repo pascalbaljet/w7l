@@ -31,16 +31,45 @@ namespace KidLauncher.Core
             var executable = Resolve(applicationDirectory, game.ExecutablePath);
             var directory = string.IsNullOrWhiteSpace(game.WorkingDirectory)
                 ? Path.GetDirectoryName(executable) : Resolve(applicationDirectory, game.WorkingDirectory);
+            bool shell = game.RunAsAdministrator || string.Equals(Path.GetExtension(executable), ".lnk", StringComparison.OrdinalIgnoreCase);
+            if (!shell) return StartSeparate(executable, game.Arguments ?? "", directory);
             using (var process = Process.Start(new ProcessStartInfo(executable, game.Arguments ?? "")
             {
                 WorkingDirectory = directory,
-                UseShellExecute = game.RunAsAdministrator || string.Equals(Path.GetExtension(executable), ".lnk", StringComparison.OrdinalIgnoreCase),
+                UseShellExecute = true,
                 Verb = game.RunAsAdministrator ? "runas" : ""
             }))
             {
                 if (process == null) throw new UncertainProcessStartException("Windows did not return the launched process identity. Check whether the game opened before recovering.");
                 try { return StartedIdentity(process, executable); }
                 catch (Exception error) { throw new UncertainProcessStartException("The game started, but its identity could not be recorded. Close it manually before confirming recovery.", error); }
+            }
+        }
+
+        // A 16-bit Windows game started into Windows 7's shared ntvdm.exe returns no real process: its
+        // handle only supports waiting, so its creation time cannot be read. CREATE_SEPARATE_WOW_VDM gives
+        // the game its own ntvdm.exe with a real handle and PID, which F6 can close. 32-bit games ignore the flag.
+        private static TrackedProcess StartSeparate(string executable, string arguments, string directory)
+        {
+            var startup = new StartupInfo { Size = Marshal.SizeOf(typeof(StartupInfo)) };
+            ProcessInformation info;
+            // For 16-bit programs the application name must be null and the command line must name the program.
+            var command = new System.Text.StringBuilder("\"" + executable + "\"" + (arguments.Length > 0 ? " " + arguments : ""));
+            if (!CreateProcess(null, command, IntPtr.Zero, IntPtr.Zero, false, CreateSeparateWowVdm, IntPtr.Zero, directory, ref startup, out info))
+                throw new Win32Exception(Marshal.GetLastWin32Error(), "Cannot start the game: " + executable);
+            try
+            {
+                long created, exited, kernel, user;
+                if (!GetProcessTimesRaw(info.Process, out created, out exited, out kernel, out user))
+                    throw new UncertainProcessStartException("The game started, but its identity could not be recorded. Close it manually before confirming recovery.",
+                        new Win32Exception(Marshal.GetLastWin32Error(), "Cannot read creation time from the returned process handle."));
+                return new TrackedProcess { Id = info.ProcessId, StartTimeUtcTicks = DateTime.FromFileTimeUtc(created).Ticks,
+                    Name = Path.GetFileNameWithoutExtension(executable) };
+            }
+            finally
+            {
+                if (info.Thread != IntPtr.Zero) CloseHandle(info.Thread);
+                CloseHandle(info.Process);
             }
         }
 
@@ -184,6 +213,20 @@ namespace KidLauncher.Core
         [DllImport("kernel32.dll", SetLastError = true)] private static extern SafeProcessHandle OpenProcess(uint access, bool inherit, int id);
         [DllImport("kernel32.dll", SetLastError = true)] private static extern bool GetProcessTimes(SafeProcessHandle handle, out long creation, out long exit, out long kernel, out long user);
         [DllImport("kernel32.dll", EntryPoint = "GetProcessTimes", SetLastError = true)] private static extern bool GetProcessTimesRaw(IntPtr handle, out long creation, out long exit, out long kernel, out long user);
+        private const uint CreateSeparateWowVdm = 0x00000800;
+        [StructLayout(LayoutKind.Sequential)]
+        private struct StartupInfo
+        {
+            public int Size; public IntPtr Reserved, Desktop, Title;
+            public int X, Y, Width, Height, CountCharsX, CountCharsY, FillAttribute, Flags;
+            public short ShowWindow, Reserved2Size; public IntPtr Reserved2, StdInput, StdOutput, StdError;
+        }
+        [StructLayout(LayoutKind.Sequential)]
+        private struct ProcessInformation { public IntPtr Process, Thread; public int ProcessId, ThreadId; }
+        [DllImport("kernel32.dll", EntryPoint = "CreateProcessW", CharSet = CharSet.Unicode, SetLastError = true)]
+        private static extern bool CreateProcess(string application, System.Text.StringBuilder commandLine, IntPtr processAttributes, IntPtr threadAttributes,
+            bool inheritHandles, uint flags, IntPtr environment, string directory, ref StartupInfo startup, out ProcessInformation information);
+        [DllImport("kernel32.dll", SetLastError = true)] private static extern bool CloseHandle(IntPtr handle);
         [DllImport("kernel32.dll", SetLastError = true)] private static extern bool TerminateProcess(SafeProcessHandle handle, uint code);
         [DllImport("kernel32.dll", SetLastError = true)] private static extern uint WaitForSingleObject(SafeProcessHandle handle, uint timeout);
     }
