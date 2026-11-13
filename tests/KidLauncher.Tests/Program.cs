@@ -25,7 +25,7 @@ namespace KidLauncher.Tests
             var tests = new Action[] { RuntimeContract, ConfigurationRoundTrip, Validation, PinHash, ForcedExitAndChildHandoff,
                 GracefulExit, InstantExitSkipsGracePeriod, LaunchFailureRestores, MountFailurePreventsLaunch, ExistingDiscIsReplaced,
                 DiscCanRemainMounted, RecoveryWaitsForGame, FailedRestorationIsRetried, ConcurrentSessionsRejected,
-                DisabledForceExitKeepsResources, LegacyDiscRestorationSettingIsIgnored, WindowsProcessIdentity,
+                DisabledForceExitKeepsResources, LegacyDiscRestorationSettingIsIgnored, VdmIsAlwaysPartOfTheGame, WindowsProcessIdentity,
                 FutureSchemaCannotBeOverwritten, DiscRecoveryIsIdempotent, RecoveryFindsUnrecordedChild,
                 ReportingFailureDoesNotLockSession, UncertainStartRequiresAdultRecovery, SelectedProcessNamesLeaveHelpersAlone,
                 WindowsShortcutLaunch, WindowsDisplayRejectsMismatchedNativeMode, DisplayModeScalingLabels, WindowsHotkeySurvivesBusyUi, WindowsKeyBlockerSwallowsOnlyWindowsKeys };
@@ -539,6 +539,22 @@ namespace KidLauncher.Tests
             }
         }
 
+        private static void VdmIsAlwaysPartOfTheGame()
+        {
+            using (var f = new Fixture())
+            {
+                // Dreumes on the target PC: only CWRUN selected, while its ntvdm.exe runs the actual game.
+                f.Processes.LeftoverVdm = true;
+                f.Processes.ChildHandoff = true; f.Processes.HelperAlive = true; f.Processes.HelperName = "ntvdm";
+                f.Game.ProcessNames.Add("GAME");
+                var active = f.Session.RunAsync(f.Game, CancellationToken.None);
+                Complete(f.Session.RequestExitAsync()); Complete(active);
+                Assert(f.Processes.Started && !f.Processes.LeftoverAliveAtStart, "A leftover ntvdm from an earlier game must be closed before the next game starts.");
+                Assert(f.Processes.ChildTerminated && !f.Processes.HelperAlive, "The game's own ntvdm must be closed on exit even when process names are selected.");
+                Assert(!File.Exists(f.RecoveryPath) && f.Display.Current.Width == 1920, "Session did not restore after closing the game's ntvdm.");
+            }
+        }
+
         private sealed class Fixture : IDisposable
         {
             public readonly string Root = Path.Combine(Path.GetTempPath(), "KidLauncherTests-" + Guid.NewGuid().ToString("N"));
@@ -586,16 +602,20 @@ namespace KidLauncher.Tests
         {
             public static readonly TrackedProcess Initial = new TrackedProcess { Id = 101, StartTimeUtcTicks = 1000, Name = "bootstrap" };
             private readonly TrackedProcess child = new TrackedProcess { Id = 102, StartTimeUtcTicks = 2000, Name = "game" };
-            private readonly TrackedProcess helper = new TrackedProcess { Id = 103, StartTimeUtcTicks = 3000, Name = "helper" };
+            private TrackedProcess helper => new TrackedProcess { Id = 103, StartTimeUtcTicks = 3000, Name = HelperName };
+            private readonly TrackedProcess leftover = new TrackedProcess { Id = 104, StartTimeUtcTicks = 500, Name = "ntvdm" };
+            public string HelperName = "helper";
+            public bool LeftoverVdm, LeftoverAliveAtStart;
             public bool Alive = true, ChildHandoff, ChildTerminated, UnrelatedTerminated, CloseWorks, Closed, Terminated, Started, FailStart, FailIdentity;
             public bool HelperAlive;
-            public IReadOnlyList<TrackedProcess> Snapshot() => new[] { Initial };
-            public TrackedProcess Start(Game game, string directory) { if (FailStart) throw new IOException("start failed"); Started = true; if (FailIdentity) throw new UncertainProcessStartException("identity unavailable"); return Initial; }
+            public IReadOnlyList<TrackedProcess> Snapshot() => LeftoverVdm ? new[] { Initial, leftover } : new[] { Initial };
+            public TrackedProcess Start(Game game, string directory) { if (FailStart) throw new IOException("start failed"); Started = true; LeftoverAliveAtStart = LeftoverVdm; if (FailIdentity) throw new UncertainProcessStartException("identity unavailable"); return Initial; }
             public IReadOnlyList<TrackedProcess> FindChildren(IReadOnlyList<TrackedProcess> parents) => HelperAlive ? new[] { child, helper } : ChildHandoff ? new[] { child } : new TrackedProcess[0];
-            public bool IsAlive(TrackedProcess p) => p.Id == helper.Id ? HelperAlive : Alive && (!ChildHandoff || p.Id == child.Id);
+            public bool IsAlive(TrackedProcess p) => p.Id == leftover.Id ? LeftoverVdm : p.Id == helper.Id ? HelperAlive : Alive && (!ChildHandoff || p.Id == child.Id);
             public void RequestClose(TrackedProcess p) { Closed = true; if (CloseWorks) Alive = false; }
             public void Terminate(TrackedProcess p)
             {
+                if (p.Id == leftover.Id) { LeftoverVdm = false; return; }
                 if (p.Id != Initial.Id && p.Id != child.Id) UnrelatedTerminated = true;
                 if (p.Id == child.Id) ChildTerminated = true;
                 if (p.Id == helper.Id) HelperAlive = false;

@@ -38,6 +38,30 @@ namespace KidLauncher.Core
             recovery = new RecoveryStore(store.DataDirectory);
         }
 
+        // ntvdm.exe runs 16-bit games themselves, so it is never a helper to leave running.
+        private static bool IsVdm(TrackedProcess process) =>
+            string.Equals(process.Name, "ntvdm", StringComparison.OrdinalIgnoreCase) || string.Equals(process.Name, "ntvdm.exe", StringComparison.OrdinalIgnoreCase);
+
+        // Windows 7 runs a new 16-bit program inside an ntvdm.exe that is already running. One left over from
+        // an earlier game is not a child of the next game, so that game could not be followed or closed.
+        private async Task CloseLeftoverVdmsAsync()
+        {
+            var leftovers = processes.Snapshot().Where(IsVdm).ToList();
+            foreach (var leftover in leftovers)
+            {
+                Report("Closing leftover 16-bit helper from an earlier game: ntvdm PID " + leftover.Id);
+                try { processes.Terminate(leftover); }
+                catch (Exception error) { Report("Leftover 16-bit helper could not be closed: " + error.Message); }
+            }
+            for (int waited = 0; waited < 2000 && leftovers.Any(Alive); waited += 100) await Task.Delay(100);
+        }
+
+        private bool Alive(TrackedProcess process)
+        {
+            try { return processes.IsAlive(process); }
+            catch (Exception) { return true; }
+        }
+
         private void Report(string message)
         {
             try { log.Write(message); }
@@ -98,6 +122,7 @@ namespace KidLauncher.Core
                 if (errors.Count > 0) throw new InvalidDataException(string.Join(Environment.NewLine, errors));
                 cancellationToken.ThrowIfCancellationRequested();
                 Report("Preparing game: " + game.Title);
+                await CloseLeftoverVdmsAsync();
                 var disc = new DiscSettings {
                     Enabled = game.Disc.Enabled, ImagePath = store.ResolvePath(game.Disc.ImagePath),
                     VirtualDriveIndex = game.Disc.VirtualDriveIndex, ExpectedDriveLetter = game.Disc.ExpectedDriveLetter,
@@ -170,7 +195,7 @@ namespace KidLauncher.Core
                         if (observed.Any(p => p.Id == child.Id && p.StartTimeUtcTicks == child.StartTimeUtcTicks)) continue;
                         observed.Add(child);
                         Report("Detected child process: " + child.Name + " PID " + child.Id);
-                        if (session.ProcessNames.Count > 0 && !session.ProcessNames.Contains(child.Name, StringComparer.OrdinalIgnoreCase)) continue;
+                        if (session.ProcessNames.Count > 0 && !session.ProcessNames.Contains(child.Name, StringComparer.OrdinalIgnoreCase) && !IsVdm(child)) continue;
                         session.Processes.Add(child);
                         recovery.Save(session);
                     }
@@ -269,7 +294,7 @@ namespace KidLauncher.Core
             foreach (var child in processes.FindChildren(session.Processes))
             {
                 if (session.Processes.Any(p => p.Id == child.Id && p.StartTimeUtcTicks == child.StartTimeUtcTicks)) continue;
-                if (session.ProcessNames.Count > 0 && !session.ProcessNames.Contains(child.Name, StringComparer.OrdinalIgnoreCase)) continue;
+                if (session.ProcessNames.Count > 0 && !session.ProcessNames.Contains(child.Name, StringComparer.OrdinalIgnoreCase) && !IsVdm(child)) continue;
                 session.Processes.Add(child); discovered = true;
             }
             if (discovered) recovery.Save(session);

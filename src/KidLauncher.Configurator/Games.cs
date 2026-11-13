@@ -135,7 +135,7 @@ namespace KidLauncher.Configurator
             Heading(panel, "Process tracking and exit");
             panel.Children.Add(Note("Only verified processes from this launch are tracked. Names help identify bootstrap handoffs, not arbitrary existing processes."));
             var names = new TextBox { Text = string.Join(", ", g.ProcessNames), Padding = new Thickness(6) };
-            panel.Children.Add(Note("Process names, separated by commas (without .exe)")); panel.Children.Add(names);
+            panel.Children.Add(Note("Process names, separated by commas (without .exe). Leave empty to track every process the game starts. A game's ntvdm (16-bit games) is always tracked.")); panel.Children.Add(names);
             names.TextChanged += (s, e) => g.ProcessNames = names.Text.Split(new[] { ',', ';', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Select(n => Path.GetFileNameWithoutExtension(n.Trim())).Where(n => n.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
             Field(panel, "Startup observation grace (milliseconds)", g, "StartupGraceMs");
             Field(panel, "Graceful close timeout (milliseconds)", g, "GracefulExitTimeoutMs");
