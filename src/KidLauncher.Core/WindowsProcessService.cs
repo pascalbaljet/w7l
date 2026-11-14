@@ -152,6 +152,24 @@ namespace KidLauncher.Core
             }
         }
 
+        public bool HasVisibleWindow(TrackedProcess process)
+        {
+            // Verify the identity first: a reused PID must not count as the game's window.
+            using (var handle = OpenOwned(process, 0x1000 | 0x100000))
+            {
+                if (handle == null || !IsRunning(handle)) return false;
+                bool found = false;
+                EnumWindows((window, unused) =>
+                {
+                    uint owner;
+                    GetWindowThreadProcessId(window, out owner);
+                    if (owner == (uint)process.Id && IsWindowVisible(window)) { found = true; return false; }
+                    return true;
+                }, IntPtr.Zero);
+                return found;
+            }
+        }
+
         public void Terminate(TrackedProcess process)
         {
             // Query creation time and terminate through the SAME kernel handle. A PID
@@ -210,6 +228,10 @@ namespace KidLauncher.Core
         {
             return Path.GetFullPath(Path.IsPathRooted(path) ? path : Path.Combine(root, path));
         }
+        private delegate bool EnumWindowsProc(IntPtr window, IntPtr parameter);
+        [DllImport("user32.dll")] private static extern bool EnumWindows(EnumWindowsProc callback, IntPtr parameter);
+        [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
+        [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr window);
         [DllImport("kernel32.dll", SetLastError = true)] private static extern SafeProcessHandle OpenProcess(uint access, bool inherit, int id);
         [DllImport("kernel32.dll", SetLastError = true)] private static extern bool GetProcessTimes(SafeProcessHandle handle, out long creation, out long exit, out long kernel, out long user);
         [DllImport("kernel32.dll", EntryPoint = "GetProcessTimes", SetLastError = true)] private static extern bool GetProcessTimesRaw(IntPtr handle, out long creation, out long exit, out long kernel, out long user);

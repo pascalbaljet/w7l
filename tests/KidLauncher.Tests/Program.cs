@@ -25,7 +25,7 @@ namespace KidLauncher.Tests
             var tests = new Action[] { RuntimeContract, ConfigurationRoundTrip, Validation, PinHash, ForcedExitAndChildHandoff,
                 GracefulExit, InstantExitSkipsGracePeriod, LaunchFailureRestores, MountFailurePreventsLaunch, ExistingDiscIsReplaced,
                 DiscCanRemainMounted, RecoveryWaitsForGame, FailedRestorationIsRetried, ConcurrentSessionsRejected,
-                DisabledForceExitKeepsResources, LegacyDiscRestorationSettingIsIgnored, VdmIsAlwaysPartOfTheGame, WindowsProcessIdentity,
+                DisabledForceExitKeepsResources, LegacyDiscRestorationSettingIsIgnored, VdmIsAlwaysPartOfTheGame, IdleVdmEndsTheGame, WindowsProcessIdentity,
                 FutureSchemaCannotBeOverwritten, DiscRecoveryIsIdempotent, RecoveryFindsUnrecordedChild,
                 ReportingFailureDoesNotLockSession, UncertainStartRequiresAdultRecovery, SelectedProcessNamesLeaveHelpersAlone,
                 WindowsShortcutLaunch, WindowsDisplayRejectsMismatchedNativeMode, DisplayModeScalingLabels, WindowsHotkeySurvivesBusyUi, WindowsKeyBlockerSwallowsOnlyWindowsKeys };
@@ -555,6 +555,24 @@ namespace KidLauncher.Tests
             }
         }
 
+        private static void IdleVdmEndsTheGame()
+        {
+            foreach (bool window in new[] { false, true })
+                using (var f = new Fixture())
+                {
+                    // Dreumes after "afsluiten": CWRUN and the menu are gone, only its ntvdm.exe is left running.
+                    f.Processes.ChildHandoff = true; f.Processes.HelperAlive = true; f.Processes.HelperName = "ntvdm";
+                    f.Processes.Alive = false; f.Processes.HelperWindow = window;
+                    var active = f.Session.RunAsync(f.Game, CancellationToken.None);
+                    bool ended = active.Wait(6000);
+                    if (!window) Assert(ended && !f.Processes.HelperAlive && f.Display.Current.Width == 1920 && !File.Exists(f.RecoveryPath),
+                        "An ntvdm with no window left after the game quit must be closed so the launcher returns.");
+                    else Assert(!ended && f.Processes.HelperAlive, "An ntvdm that still shows a window is a running 16-bit game and must not be closed.");
+                    f.Processes.HelperAlive = false;
+                    Complete(active);
+                }
+        }
+
         private sealed class Fixture : IDisposable
         {
             public readonly string Root = Path.Combine(Path.GetTempPath(), "KidLauncherTests-" + Guid.NewGuid().ToString("N"));
@@ -605,7 +623,8 @@ namespace KidLauncher.Tests
             private TrackedProcess helper => new TrackedProcess { Id = 103, StartTimeUtcTicks = 3000, Name = HelperName };
             private readonly TrackedProcess leftover = new TrackedProcess { Id = 104, StartTimeUtcTicks = 500, Name = "ntvdm" };
             public string HelperName = "helper";
-            public bool LeftoverVdm, LeftoverAliveAtStart;
+            public bool LeftoverVdm, LeftoverAliveAtStart, HelperWindow;
+            public bool HasVisibleWindow(TrackedProcess p) => p.Id == helper.Id ? HelperAlive && HelperWindow : Alive;
             public bool Alive = true, ChildHandoff, ChildTerminated, UnrelatedTerminated, CloseWorks, Closed, Terminated, Started, FailStart, FailIdentity;
             public bool HelperAlive;
             public IReadOnlyList<TrackedProcess> Snapshot() => LeftoverVdm ? new[] { Initial, leftover } : new[] { Initial };

@@ -25,6 +25,7 @@ namespace KidLauncher.Core
         bool IsAlive(TrackedProcess process);
         void RequestClose(TrackedProcess process);
         void Terminate(TrackedProcess process);
+        bool HasVisibleWindow(TrackedProcess process);
     }
 
     public interface IDiscService

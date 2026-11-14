@@ -56,6 +56,9 @@ namespace KidLauncher.Core
             for (int waited = 0; waited < 2000 && leftovers.Any(Alive); waited += 100) await Task.Delay(100);
         }
 
+        // After a 16-bit game quits through its own menu, its ntvdm.exe keeps running with no window.
+        private const int IdleVdmMs = 3000;
+
         private bool Alive(TrackedProcess process)
         {
             try { return processes.IsAlive(process); }
@@ -180,6 +183,7 @@ namespace KidLauncher.Core
                 long nextDisplaySnapshot = 5000;
                 Stopwatch exitTimer = null;
                 var closeRequested = new HashSet<string>();
+                Stopwatch idleVdm = null;
                 bool closingAnnounced = false;
                 Func<Task> announceClosing = async () =>
                 {
@@ -201,6 +205,23 @@ namespace KidLauncher.Core
                     }
                     var alive = session.Processes.Where(processes.IsAlive).ToList();
                     if (alive.Count == 0 && startup.ElapsedMilliseconds >= game.StartupGraceMs) break;
+                    // Only ntvdm is left and it shows nothing: the game has quit, so close its helper.
+                    // Waiting a few seconds lets a game hand over from its menu to its next program.
+                    if (alive.Count > 0 && startup.ElapsedMilliseconds >= game.StartupGraceMs && alive.All(IsVdm) && !alive.Any(processes.HasVisibleWindow))
+                    {
+                        if (idleVdm == null) idleVdm = Stopwatch.StartNew();
+                        else if (idleVdm.ElapsedMilliseconds >= IdleVdmMs)
+                        {
+                            await announceClosing();
+                            foreach (var process in alive)
+                            {
+                                Report("The game has quit; closing its idle 16-bit helper: ntvdm PID " + process.Id);
+                                processes.Terminate(process);
+                            }
+                            idleVdm = null;
+                        }
+                    }
+                    else idleVdm = null;
                     if (game.Resolution != null && startup.ElapsedMilliseconds >= nextDisplayCheck)
                     {
                         try
