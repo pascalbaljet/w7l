@@ -1035,6 +1035,11 @@ namespace KidLauncher
                 Capture(directory, prefix + "empty.png");
                 config.Games.ForEach(game => game.Visible = true);
             }
+            // The desktop wallpaper in the repository root: the same night garden, without cards or page arrows.
+            PlayRoom.Visibility = Visibility.Collapsed;
+            foreach (var toy in new FrameworkElement[] { Moon, WishingStars, Owl, Fireflies }) toy.Visibility = Visibility.Visible;
+            Capture(directory, "desktop-wallpaper.png");
+            PlayRoom.Visibility = Visibility.Visible;
             // Reuse a rendered image as a test bitmap, not as bundled game artwork.
             config.Language = "nl";
             for (int i = 0; i < config.Games.Count; i++) config.Games[i].Visible = i < 3;
